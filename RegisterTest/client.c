@@ -1,19 +1,20 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <signal.h>
 #include <error.h>
+#include <json-c/arraylist.h>
 #include <json-c/json.h>
 
-
-#define BUFFER_SIZE     128
+#define SERVER_PORT 8080
+#define SERVER_IP   "127.0.0.1"
+#define BUFFER_SIZE 128
 #define COMMUNICATION_SIZE   512
-#define ACCOUNT_SIZE    10
 
 
 /* 新建一个用户信息 */
@@ -242,50 +243,42 @@ int Register(int sockfd, char* buf)
     return ret;
 }
 
+int main()
+{
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd == -1)
+    {
+        perror("socket error");
+        exit(-1);
+    }
 
+    struct sockaddr_in serverAddress;
+    memset(&serverAddress, 0, sizeof(serverAddress));
+    /* 端口 */
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_port = htons(SERVER_PORT);
+    /* IP地址 */
+    int ret = inet_pton(AF_INET, SERVER_IP, (void *)&(serverAddress.sin_addr.s_addr));
+    if (ret != 1)
+    {
+        perror("inet_pton error");
+        exit(-1);
+    }
 
+    /* ip地址 */
+    ret = connect(sockfd, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
+    if (ret == -1)
+    {
+        perror("connect error");
+        exit(-1);
+    }
+    char buf[COMMUNICATION_SIZE];
+    memset(buf, 0, sizeof(buf));
+    Register(sockfd, buf);
 
-
-
-
-int main(void) {
-    // 创建JSON对象
-    struct json_object* userDataBase = json_object_new_object();
-    const char* str = NULL;
-
-    /* 打包一个用户信息 */
-    struct json_object* USER1 = json_object_new_object();
-    char tmpbuf[30] = {0};
-    scanf("%s", tmpbuf);
-    json_object_object_add(USER1, "name", json_object_new_string(tmpbuf));
-    json_object_object_add(USER1, "age", json_object_new_int(20));
-    json_object_object_add(USER1, "ID", json_object_new_string("1356026577"));
-    json_object_object_add(USER1, "password", json_object_new_string("tjl123456"));
-    json_object_object_add(USER1, "个性签名", json_object_new_string("这是一个个性签名"));
-
-
-    /* 向总的userData中添加单个用户对象的信息键值对 */
-    json_object_object_add(userDataBase, "1356026577", USER1);
-    str = json_object_to_json_string(userDataBase);
-
-    printf("%ld\n", strlen(str));
-    printf("%s\n", str);
-
-
-    /* 修改信息 */
-    struct json_object * tmp = NULL;
-    /* 提取出值 */
-    json_object_object_get_ex(userDataBase, "1356026577", &tmp);
-    /* 修改 */
-    json_object_object_add(tmp, "name", json_object_new_string("xiaoming"));
-
-    str = json_object_to_json_string(userDataBase);
-
-    printf("%ld\n", strlen(str));
-    printf("%s\n", str);
-
-    // 释放JSON对象内存
-    json_object_put(userDataBase);
-    
+    close(sockfd);
     return 0;
 }
+
+
+
