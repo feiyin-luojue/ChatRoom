@@ -12,13 +12,15 @@
 
 
 #define BUFFER_SIZE     128
-#define USERDATA_SIZE   512
+#define COMMUNICATION_SIZE   512
 #define ACCOUNT_SIZE    10
 
 
 /* 新建一个用户信息 */
-void Register(int sockfd)
+int Register(int sockfd, char* buf)
 {
+    int ret = 0;
+
     /* 年龄 */
     int age = 0;
     /* 昵称 */
@@ -40,9 +42,12 @@ void Register(int sockfd)
     memset(personalSign, 0, sizeof(char) * BUFFER_SIZE);
     
 
-
-    //while(1)
-    //{
+    /* 获取合法账号以及访问服务端账号是否存在 */
+    /* 向服务端发起确认账号是否已存在 */
+    /* 向服务器发送一个包含行动和数据的json格式的字符串 */
+    struct json_object* accountObj = json_object_new_object();
+    while(1)
+    {
         int flag = 0;
         int flag1 = 1;
         /* 获取纯数字的账号 */
@@ -62,7 +67,7 @@ void Register(int sockfd)
                 }
                 else
                 {
-                    printf("小只因：听不懂人话吗?\n");
+                    printf("小只因：不识字吗?\n");
                 }
                 flag1 = 0;
                 flag = 0;
@@ -84,13 +89,36 @@ void Register(int sockfd)
             }
         }
     
-        /* 向服务端发起确认账号是否已存在 */
-        /* to do...... */
         
-        //write(sockfd, account, sizeof(char) * BUFFER_SIZE);
+        /* 添加行动和数据 */
+        json_object_object_add(accountObj, "action", json_object_new_string("duplicateCheck"));//查重
+        json_object_object_add(accountObj, "账号", json_object_new_string(account));
+        /* 转换成字符串json格式 */
+        char* sendStr = json_object_to_json_string(accountObj);
+
+        /* 发送缓存区 */
+        char sendBuf[COMMUNICATION_SIZE];
+        memset(sendBuf, 0, sizeof(sendBuf));
+
+        strncpy(sendBuf, sendStr, sizeof(sendBuf) - 1);
+        /* 发送信息 */
+        write(sockfd, sendBuf, sizeof(sendBuf));
+        /* 接收缓存区 */
+        char recvBuf[COMMUNICATION_SIZE];
+        memset(recv, 0, sizeof(sendBuf));
         
-        //read(sockfd, )
-    //}
+        /* 等待服务端回应 */
+        read(sockfd,recvBuf, sizeof(recvBuf));
+        /* 服务器发送available表示该账号可用 */
+        if(strncmp(recvBuf, "available", strlen("available")) == 0)
+        {
+            break;
+        }
+        else
+        {
+            printf("该用户名已存在\n");
+        }
+    }
 
     system("clear");
     printf("昵称：");
@@ -170,19 +198,46 @@ void Register(int sockfd)
     json_object_object_add(userData, "地址", json_object_new_string(address));
     json_object_object_add(userData, "个性签名", json_object_new_string(personalSign));
 
+    /* 用户信息json字符串 */
     str = json_object_to_json_string(userData);
 
-    system("clear");
+    struct json_object* userDataSend = json_object_new_object();
+    const char* sendstr = NULL;
 
-    printf("注册成功！您的用户信息：%s\n", str);
+    /* 定义register注册行动 */
+    json_object_object_add(userDataSend, "action", json_object_new_string("register"));
 
-    char Data[USERDATA_SIZE];
-    memset(Data, 0, sizeof(Data));
+    /* 将用户信息包装好放入，并标明键为userData */
+    json_object_object_add(userDataSend, "userData", userData);
+    sendstr = json_object_to_json_string(userData);
+
+    char sendBuf[COMMUNICATION_SIZE];
+    memset(sendBuf, 0, sizeof(sendBuf));
+
+    char recvBuf[COMMUNICATION_SIZE];
+    memset(recvBuf, 0, sizeof(recvBuf));
+
+    strncpy(sendBuf, sendstr, sizeof(sendBuf) - 1);
     
-    /* 存放最终的的用户信息 */
-    strncpy(Data, str, sizeof(Data) - 1);
+    /* 将包装好的行动信息和数据发送 */
+    write(sockfd, sendBuf, sizeof(sendBuf));
 
+    read(sockfd, recvBuf, sizeof(recvBuf));
+    if(strncmp(recvBuf, "registerSuccessful", strlen("registerSuccessful")) == 0)
+    {
+        system("clear");
+        printf("注册成功！您的用户信息：%s\n", str);
+    }
+
+    /* 将字符串复制给传进的字符串数组 */
+    strncpy(buf, str, (sizeof(char) * COMMUNICATION_SIZE) - 1);
+
+    /* 释放json对象 */
     json_object_put(userData);
+    json_object_put(accountObj);
+    json_object_put(userDataSend);
+
+    return ret;
 }
 
 
@@ -229,6 +284,6 @@ int main(void) {
 
     // 释放JSON对象内存
     json_object_put(userDataBase);
-
+    
     return 0;
 }
