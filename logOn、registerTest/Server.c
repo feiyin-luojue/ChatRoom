@@ -11,7 +11,7 @@
 #include <json-c/arraylist.h>
 #include <json-c/json.h>
 #include "Func.h"
-
+#include "stateList.h"
 
 #define SERVER_PORT 8080
 #define MAX_LISTEN  128
@@ -19,12 +19,26 @@
 #define BUFFER_SIZE 128
 #define COMMUNICATION_SIZE   512
 
+/****************** 
+服务端要有存放用户信息和在线状态的数据结构————一个用户信息的json，一个用户状态的json
+服务端要有存放用户和acceptfd的映射数据结构————
+
+
+
+******************/
+
+
 
 
 int main()
 {
 
     int sockfd = 0;
+    
+    /* 初始化在线用户列表 */
+    stateList* List = NULL;
+    stateListInit(&List);
+
     /* 创建服务端套接字 */
     SrSocket(&sockfd, SERVER_PORT);
 
@@ -45,7 +59,8 @@ int main()
     char recvBuf[COMMUNICATION_SIZE];
     //发送缓存区
     char sendBuf[COMMUNICATION_SIZE];
-
+    
+    /* 线程的工作 */
     while(1)
     {   
         /* 读客户端信息，客户端和服务端读写缓存区统一为 512 */
@@ -67,23 +82,32 @@ int main()
         struct json_object* actionObj = json_object_object_get(readObj, "action");
         const char* action = json_object_get_string(actionObj);
         
-        if(strncmp(action, "duplicateCheck", strlen("logOn")) == 0)//账号查重行动
+        if(strncmp(action, "duplicateCheck", strlen("duplicateCheck")) == 0)//账号注册查重行动
         {   //账号查重行动处理函数，to finish......
             memset(sendBuf, 0, sizeof(sendBuf));
-            strncpy(sendBuf, "available", sizeof(sendBuf) - 1);
+            strncpy(sendBuf, "availabl", sizeof(sendBuf) - 1);
             write(acceptfd, sendBuf, sizeof(sendBuf));
         }
-        else if(strncmp(action, "register", strlen("logOn")) == 0)//注册行动
+        else if(strncmp(action, "register", strlen("register")) == 0)//注册行动
         {   //注册行动处理函数，to finish......
             memset(sendBuf, 0, sizeof(sendBuf));
             strncpy(sendBuf, "registerSuccessful", sizeof(sendBuf) - 1);
             write(acceptfd, sendBuf, sizeof(sendBuf));
         }
         else if(strncmp(action, "logOn", strlen("logOn")) == 0)//登录行动
-        {   //登录行动处理函数，to finish......
+        {   
+            //解析出传来的账号密码
+            //()先核对账号密码，如果账号密码不存在或者错误，返回checkError
+            //如果账号密码正确，判断该账户是否已在线，如果在线，返回onLine
+            //如果不在线，服务端处理登陆，返回用户的json格式字符串信息
+
             memset(sendBuf, 0, sizeof(sendBuf));
-            strncpy(sendBuf, "{ \"昵称\": \"tjl123456\", \"性别\": \"男\", \"年龄\": 18, \"账号\": \"1111111111\", \"密码\": \"Tjl123456!\", \"地址\": \"湖南\", \"个性签名\": \"这是一个个性签名\" }", sizeof(sendBuf) - 1);
+            strncpy(sendBuf, "", sizeof(sendBuf) - 1);
             write(acceptfd, sendBuf, sizeof(sendBuf));
+        }
+        else if(strncmp(action, "onLineCheck", strlen("onLineCheck")) == 0)//查询是否在线行动
+        {
+
         }
         //to do......
 

@@ -1,6 +1,12 @@
 #ifndef _FUNC_H_
 #define _FUNC_H_
 
+typedef struct status
+{
+
+};
+
+
 /* 服务端套接字创建函数，传出参数获取套接字描述符，第二个参数为端口号 */
 int SrSocket(int * sockfdGet, int serverPort);
 

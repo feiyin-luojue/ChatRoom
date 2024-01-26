@@ -15,7 +15,7 @@
 
 #define MAX_LISTEN  128
 #define SERVER_PORT 8080
-#define SERVER_IP "172.28.106.66"
+#define SERVER_IP "127.0.0.1"
 #define BUFFER_SIZE 128
 #define COMMUNICATION_SIZE 512
 
@@ -132,12 +132,6 @@ int Register(int sockfd, char *buf)
     /* 密码 */
     char password[BUFFER_SIZE];
     memset(password, 0, sizeof(char) * BUFFER_SIZE);
-    /* 地址 */
-    char address[BUFFER_SIZE];
-    memset(address, 0, sizeof(char) * BUFFER_SIZE);
-    /* 个性签名 */
-    char personalSign[BUFFER_SIZE];
-    memset(personalSign, 0, sizeof(char) * BUFFER_SIZE);
 
     /* 获取合法账号以及访问服务端账号是否存在 */
     /* 向服务端发起确认账号是否已存在 */
@@ -213,7 +207,8 @@ int Register(int sockfd, char *buf)
         }
         else
         {
-            printf("该用户名已存在\n");
+            printf("该账号已存在\n");
+            sleep(1);
         }
     }
 
@@ -304,6 +299,7 @@ int Register(int sockfd, char *buf)
         if (hasCapitalEnglish && hasLowercaseEnglish && hasSpecialCharacters && hasNumbers)
         {
             printf("密码注册成功！\n");
+            sleep(1);
             flag = 1;
         }
         else
@@ -316,28 +312,19 @@ int Register(int sockfd, char *buf)
             sleep(1);
         }
     }
-    sleep(1);
-
-    system("clear");
-    printf("地址：");
-    scanf("%s", address);
-
-    system("clear");
-    printf("个性签名：");
-    scanf("%s", personalSign);
+    
 
     struct json_object *userData = json_object_new_object();
-    const char *str = NULL;
+    
     json_object_object_add(userData, "昵称", json_object_new_string(name));
     json_object_object_add(userData, "性别", json_object_new_string(sex));
     json_object_object_add(userData, "年龄", json_object_new_int(age));
     json_object_object_add(userData, "账号", json_object_new_string(account));
     json_object_object_add(userData, "密码", json_object_new_string(password));
-    json_object_object_add(userData, "地址", json_object_new_string(address));
-    json_object_object_add(userData, "个性签名", json_object_new_string(personalSign));
+
 
     /* 用户信息json字符串 */
-    str = json_object_to_json_string(userData);
+    const char *str = json_object_to_json_string(userData);
 
     struct json_object *userDataSend = json_object_new_object();
     const char *sendstr = NULL;
@@ -393,7 +380,7 @@ int logon(int sockfd, char* buf)
     while(!true)
     {
         /* 获取合法账号以及访问服务端账号是否存在 */
-        /* 向服务端发起确认账号是否已存在 */
+        /* 该账号是否已在登录状态 */
         /* 向服务器发送一个包含行动和数据的json格式的字符串 */
             int flag = 0;
             int flag1 = 1;
@@ -496,24 +483,31 @@ int logon(int sockfd, char* buf)
         /* 将json格式的字符串发送给客户端 */
         write(sockfd, sendBuf, sizeof(sendBuf));
 
+        /* 等待服务器回应 */
         memset(recvBuf, 0, sizeof(sendBuf));
         read(sockfd, recvBuf, sizeof(recvBuf));
-        /* 服务端如果确认账号密码错误，则返回的字符串信息仅包含登录失败 */
-        /* 服务端如果确认账号密码正确，则返回的字符串信息包含登录成功和账号的用户信息 */
 
-        if(strncmp(recvBuf, "logOnfaild", strlen("logOnSuccess")) == 0)
+        /* 服务端如果确认账号密码错误，则返回的字符串信息为checkError */
+        /* 如果服务端确认账号密码正确，但是已在线，则返回onLine */
+        /* 服务端如果确认账号密码正确，则返回的字符串信息包含登录成功和账号的用户信息 */
+        if(strncmp(recvBuf, "checkError", strlen("checkError")) == 0)
         {
             /* 失败 */
-            printf("登录失败");
+            printf("账号密码错误\n");
+            continue;
+        }
+        else if(strncmp(recvBuf, "onLine", strlen("onLine")) == 0)
+        {
+            /* 失败 */
+            printf("该用户已在线");
             continue;
         }
         else
-        {
+        {//程序执行到这里说明服务端传回的是用户信息存放在readBuf中
             /* 成功 */
-            printf("登录成功\n");
+            printf("登陆成功");
             true = 1;
         }
-    
 
     }
     
