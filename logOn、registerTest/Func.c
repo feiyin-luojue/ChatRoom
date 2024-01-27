@@ -10,7 +10,7 @@
 #include <error.h>
 #include <json-c/arraylist.h>
 #include <json-c/json.h>
-
+#include "Func.h"
 
 
 #define MAX_LISTEN  128
@@ -181,7 +181,7 @@ int Register(int sockfd, char *buf)
         }
 
         /* 添加行动和数据 */
-        json_object_object_add(accountObj, "action", json_object_new_string("duplicateCheck")); // 查重
+        json_object_object_add(accountObj, "action", json_object_new_int(DUPLICATE_CHECK)); // 查重
         json_object_object_add(accountObj, "账号", json_object_new_string(account));
         /* 转换成字符串json格式 */
         const char *sendStr = json_object_to_json_string(accountObj);
@@ -330,7 +330,7 @@ int Register(int sockfd, char *buf)
     const char *sendstr = NULL;
 
     /* 定义register注册行动 */
-    json_object_object_add(userDataSend, "action", json_object_new_string("register"));
+    json_object_object_add(userDataSend, "action", json_object_new_int(REGISTER));
 
     /* 将用户信息包装好放入，并标明键为userData */
     json_object_object_add(userDataSend, "userData", userData);
@@ -472,7 +472,7 @@ int logon(int sockfd, char* buf)
         }
 
         /* 定义logOn注册行动并绑定数据 */
-        json_object_object_add(logOnObj, "action", json_object_new_string("logOn"));
+        json_object_object_add(logOnObj, "action", json_object_new_int(LOG_ON));
         json_object_object_add(logOnObj, "账号", json_object_new_string(account));
         json_object_object_add(logOnObj, "密码", json_object_new_string(password));
         const char* str = json_object_to_json_string(logOnObj);
@@ -518,45 +518,3 @@ int logon(int sockfd, char* buf)
     return ret;
 }
 
-/* json用例 */
-// int main(void) {
-//     // 创建JSON对象
-//     struct json_object* userDataBase = json_object_new_object();
-//     const char* str = NULL;
-
-//     /* 打包一个用户信息 */
-//     struct json_object* USER1 = json_object_new_object();
-//     char tmpbuf[30] = {0};
-//     scanf("%s", tmpbuf);
-//     json_object_object_add(USER1, "name", json_object_new_string(tmpbuf));
-//     json_object_object_add(USER1, "age", json_object_new_int(20));
-//     json_object_object_add(USER1, "ID", json_object_new_string("1356026577"));
-//     json_object_object_add(USER1, "password", json_object_new_string("tjl123456"));
-//     json_object_object_add(USER1, "个性签名", json_object_new_string("这是一个个性签名"));
-
-
-//     /* 向总的userData中添加单个用户对象的信息键值对 */
-//     json_object_object_add(userDataBase, "1356026577", USER1);
-//     str = json_object_to_json_string(userDataBase);
-
-//     printf("%ld\n", strlen(str));
-//     printf("%s\n", str);
-
-
-//     /* 修改信息 */
-//     struct json_object * tmp = NULL;
-//     /* 提取出值 */
-//     json_object_object_get_ex(userDataBase, "1356026577", &tmp);
-//     /* 修改 */
-//     json_object_object_add(tmp, "name", json_object_new_string("xiaoming"));
-
-//     str = json_object_to_json_string(userDataBase);
-
-//     printf("%ld\n", strlen(str));
-//     printf("%s\n", str);
-
-//     // 释放JSON对象内存
-//     json_object_put(userDataBase);
-    
-//     return 0;
-// }
