@@ -31,6 +31,12 @@
 
 ******************/
 
+/*************************/
+pthread_mutex_t stateMutx;
+stateList* List = NULL;    
+sqlite3 * Data_db;
+/*************************/
+
 void* threadHandle(void* arg)
 {   
     /* 设置线程分离 */
@@ -98,10 +104,29 @@ void* threadHandle(void* arg)
         switch (action)
         {
             case DUPLICATE_CHECK://注册账号查重
+                struct json_object* registerAccountObj = json_object_object_get(readObj, "账号");
+                const char* registerAccount = json_object_get_string(registerAccountObj);
+                char** result = NULL;
+                char* errmsg;
+                int rows = 0;
+                int columns = 0;
+                char sqlBuf[BUFFER_SIZE] = {0};
+                sprintf(sqlBuf,"SELECT * FROM USERDATA WHERE ID = '%s'", registerAccount);
+                printf("%s\n", sqlBuf);
+                sqlite3_get_table(Data_db, sqlBuf, &result, &rows, &columns, &errmsg);
+                if(rows > 0)
+                {
+                    memset(sendBuf, 0, sizeof(sendBuf));
+                    strncpy(sendBuf, "UnAvailable", sizeof(sendBuf) - 1);
+                    write(acceptfd, sendBuf, sizeof(sendBuf));
+                }
+                else
+                {
+                    memset(sendBuf, 0, sizeof(sendBuf));
+                    strncpy(sendBuf, "available", sizeof(sendBuf) - 1);
+                    write(acceptfd, sendBuf, sizeof(sendBuf));
+                }
                 
-                memset(sendBuf, 0, sizeof(sendBuf));
-                strncpy(sendBuf, "available", sizeof(sendBuf) - 1);
-                write(acceptfd, sendBuf, sizeof(sendBuf));
                 break;
 
             case REGISTER ://注册
@@ -121,10 +146,17 @@ void* threadHandle(void* arg)
                 const char *account = json_object_get_string(userAccountObj);
                 const char *password = json_object_get_string(userPasswordObj);
                 
-                char str[128] = {0};
-                sprintf(str, "name:%s Sex:%s Age:%d account:%s password:%s", name, Sex, Age, account, password);
-                printf("%s\n", str);
 
+                char sqlStr[128] = {0};
+                sprintf(sqlStr, "INSERT INTO USERDATA (ID, NAME, AGE, SEX, PASSWORD) VALUES ('%s', '%s', %d, '%s', '%s')", account, name, Age, Sex, password);
+                printf("%s\n", sqlStr);
+                int ret = sqlite3_exec(Data_db, sqlStr, NULL, NULL, NULL);
+                if (ret != SQLITE_OK)
+                {
+                    printf("sqlite3_exec2: %s\n", sqlite3_errmsg(Data_db));
+                    exit(1);
+                }
+                
                 memset(sendBuf, 0, sizeof(sendBuf));
                 strncpy(sendBuf, "registerSuccessful", sizeof(sendBuf) - 1);
                 write(acceptfd, sendBuf, sizeof(sendBuf));
@@ -149,11 +181,7 @@ void* threadHandle(void* arg)
     pthread_exit(NULL);
 }
 
-/*************************/
-pthread_mutex_t stateMutx;
-stateList* List = NULL;    
-sqlite3 * Data_db;
-/*************************/
+
 
 
 

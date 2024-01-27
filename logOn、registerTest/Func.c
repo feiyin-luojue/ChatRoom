@@ -352,6 +352,7 @@ int Register(int sockfd, char *buf)
     {
         system("clear");
         printf("注册成功！您的用户信息：%s\n", str);
+        sleep(1);
     }
 
     /* 将字符串复制给传进的字符串数组 */

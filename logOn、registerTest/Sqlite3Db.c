@@ -6,7 +6,7 @@
 int sqlite3UserTableCreate(sqlite3 * Data_db)
 {
     char *sql = NULL;
-    sql = "CREATE TABLE IF NOT EXISTS UERTDATA("  \
+    sql = "CREATE TABLE IF NOT EXISTS USERDATA("  \
           "ID             CHAR(15)       PRIMARY KEY     NOT NULL," \
           "NAME           CHAR(20)                       NOT NULL," \
           "AGE            INT                            NOT NULL," \
