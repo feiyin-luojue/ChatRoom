@@ -1,10 +1,16 @@
 #ifndef _STATE_LIST_H_
 #define _STATE_LIST_H_
 
+#define ACCOUNT_SIZE    10
+#define NAME_SIZE       20
+#define ON_LINE         1
+#define GROUP_CHAT      2
+
 typedef struct stateNode
 {
     char account[15];
-    char name[20];
+    int acceptfd;
+    int state;//1在线，2，群聊中
 
     struct stateNode* pre;
     struct stateNode* next;
@@ -12,6 +18,7 @@ typedef struct stateNode
 
 typedef struct stateList
 {
+    int ListSize;
     stateNode* head;//虚拟头节点
 }stateList;
 
@@ -30,14 +37,20 @@ enum STATUS_CODE
 /* 初始化 */
 int stateListInit(stateList ** list);
 
-/* 新增结点:头插 */
-int stateListInsert(stateList * list, char* Account, char * Name);
+/* 新增用户状态 */
+int stateListInsert(stateList * list, char* Account, int Acceptfd, int State);
 
-/* 查询账号是否在线，如果只想查看是否在线，Name可以传NULL,否则传入字符串指针 */
-int stateListSearch(stateList* list, char* account, char* Name);
+/* 修改用户状态 */
+int stateListModify(stateList * list, char* Account, int State);
 
-/* 删除数据 */
-int stateListAppointValDel(stateList* list, char* buf);
+/* 查询账号是否在线 */
+int stateListSearch(stateList* list, char* Account);
+
+/* 删除指定用户状态 */
+int stateListAppointValDel(stateList* list, char* Account);
+
+/* 群发 */
+
 
 /* 销毁 */
 int stateListDestroy(stateList * list);
