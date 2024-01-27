@@ -14,6 +14,7 @@
 #include "Func.h"
 #include "stateList.h"
 #include <sqlite3.h>
+#include "Sqlite3Db.h"
 
 #define SERVER_PORT 8080
 #define MAX_LISTEN  128
@@ -97,12 +98,33 @@ void* threadHandle(void* arg)
         switch (action)
         {
             case DUPLICATE_CHECK://注册账号查重
+                
                 memset(sendBuf, 0, sizeof(sendBuf));
                 strncpy(sendBuf, "available", sizeof(sendBuf) - 1);
                 write(acceptfd, sendBuf, sizeof(sendBuf));
                 break;
 
             case REGISTER ://注册
+
+                /* 解析出用户信息json对象 */
+                struct json_object* userDataObj = json_object_object_get(readObj, "userData");
+                /* 从用户信息json对象中解析出各个信息的json对象 */
+                struct json_object* userNameObj = json_object_object_get(userDataObj, "昵称");
+                struct json_object* userSexObj = json_object_object_get(userDataObj, "性别");
+                struct json_object* userAgeObj = json_object_object_get(userDataObj, "年龄");
+                struct json_object* userAccountObj = json_object_object_get(userDataObj, "账号");
+                struct json_object* userPasswordObj = json_object_object_get(userDataObj, "密码");
+                /*  */
+                const char *name = json_object_get_string(userNameObj);
+                const char *Sex = json_object_get_string(userSexObj);
+                int Age = json_object_get_int(userAgeObj);
+                const char *account = json_object_get_string(userAccountObj);
+                const char *password = json_object_get_string(userPasswordObj);
+                
+                char str[128] = {0};
+                sprintf(str, "name:%s Sex:%s Age:%d account:%s password:%s", name, Sex, Age, account, password);
+                printf("%s\n", str);
+
                 memset(sendBuf, 0, sizeof(sendBuf));
                 strncpy(sendBuf, "registerSuccessful", sizeof(sendBuf) - 1);
                 write(acceptfd, sendBuf, sizeof(sendBuf));
@@ -110,7 +132,7 @@ void* threadHandle(void* arg)
 
             case LOG_ON ://登录
                 memset(sendBuf, 0, sizeof(sendBuf));
-                strncpy(sendBuf, "", sizeof(sendBuf) - 1);
+                strncpy(sendBuf, "onLine", sizeof(sendBuf) - 1);
                 write(acceptfd, sendBuf, sizeof(sendBuf));
                 break;
 
@@ -134,6 +156,7 @@ sqlite3 * Data_db;
 /*************************/
 
 
+
 int main()
 {
 
@@ -147,14 +170,16 @@ int main()
     pthread_mutex_init(&stateMutx, NULL);
 
     ret = sqlite3_open("Data.db", &Data_db);
-
-
+    
     if(ret != SQLITE_OK)
     {
         printf("sqlite3_open: %s\n", sqlite3_errmsg(Data_db));
         exit(1);
     }
 
+    /* 创建用户信息表 */
+    sqlite3UserTableCreate(Data_db);
+    
     /* 创建服务端套接字 */
     SrSocket(&sockfd, SERVER_PORT);
 

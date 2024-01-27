@@ -471,7 +471,7 @@ int logon(int sockfd, char* buf)
             }
         }
 
-        /* 定义logOn注册行动并绑定数据 */
+        /* 定义logOn登录行动并绑定数据 */
         json_object_object_add(logOnObj, "action", json_object_new_int(LOG_ON));
         json_object_object_add(logOnObj, "账号", json_object_new_string(account));
         json_object_object_add(logOnObj, "密码", json_object_new_string(password));
@@ -494,12 +494,15 @@ int logon(int sockfd, char* buf)
         {
             /* 失败 */
             printf("账号密码错误\n");
+            sleep(1);
             continue;
         }
         else if(strncmp(recvBuf, "onLine", strlen("onLine")) == 0)
         {
             /* 失败 */
-            printf("该用户已在线");
+            printf("该用户已在线\n");
+            sleep(1);
+            //system("clear");
             continue;
         }
         else
