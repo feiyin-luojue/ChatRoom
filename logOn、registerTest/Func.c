@@ -17,7 +17,7 @@
 #define SERVER_PORT 8080
 #define SERVER_IP "127.0.0.1"
 #define BUFFER_SIZE 128
-#define COMMUNICATION_SIZE 512
+#define COMMUNICATION_SIZE 256
 
 /* 服务端套接字创建函数，传出参数获取套接字描述符，第二个参数为端口号 */
 int SrSocket(int * sockfdGet, int serverPort)
@@ -372,7 +372,7 @@ int logon(int sockfd, char* buf)
     int ret = 0;
     int true = 0;
     struct json_object* logOnObj = json_object_new_object();
-    struct json_object* rplyObj = json_object_new_object();
+
     char account[BUFFER_SIZE];
     char password[BUFFER_SIZE];
     char sendBuf[COMMUNICATION_SIZE];
@@ -478,7 +478,6 @@ int logon(int sockfd, char* buf)
         json_object_object_add(logOnObj, "密码", json_object_new_string(password));
         const char* str = json_object_to_json_string(logOnObj);
 
-
         memset(sendBuf, 0, sizeof(sendBuf));
         strncpy(sendBuf, str, sizeof(sendBuf) - 1);
         /* 将json格式的字符串发送给客户端 */
@@ -487,7 +486,6 @@ int logon(int sockfd, char* buf)
         /* 等待服务器回应 */
         memset(recvBuf, 0, sizeof(sendBuf));
         read(sockfd, recvBuf, sizeof(recvBuf));
-
         /* 服务端如果确认账号密码错误，则返回的字符串信息为checkError */
         /* 如果服务端确认账号密码正确，但是已在线，则返回onLine */
         /* 服务端如果确认账号密码正确，则返回的字符串信息包含登录成功和账号的用户信息 */
@@ -509,7 +507,7 @@ int logon(int sockfd, char* buf)
         else
         {//程序执行到这里说明服务端传回的是用户信息存放在readBuf中
             /* 成功 */
-            printf("登陆成功");
+            printf("登陆成功\n");
             true = 1;
         }
 
@@ -517,8 +515,34 @@ int logon(int sockfd, char* buf)
     
     /* 将客户端字符串复制给传进的字符串数组 */
     strncpy(buf, recvBuf, (sizeof(char) * COMMUNICATION_SIZE) - 1);
-    
+
     json_object_put(logOnObj);
     return ret;
 }
 
+int logOut(int sockfd)
+{
+    char sendBuf[COMMUNICATION_SIZE];
+    memset(sendBuf, 0, sizeof(sendBuf));
+
+    char recvBuf[COMMUNICATION_SIZE];
+    memset(recvBuf, 0, sizeof(recvBuf));
+    /* 创建action--LOG_OUT键值的json对象 */
+    struct json_object* logOutObj = json_object_new_object();
+    
+    json_object_object_add(logOutObj, "action", json_object_new_int(LOG_OUT));
+    json_object_object_add(logOutObj, "contain", json_object_new_string("hello"));
+    
+    const char* str = json_object_to_json_string(logOutObj);
+
+    
+    strncpy(sendBuf, str, sizeof(sendBuf) - 1);
+    
+    /* 发送LOG_OUT行动给服务器 */
+    
+    write(sockfd, sendBuf, sizeof(sendBuf));
+    
+    printf("已退出登录");
+
+    return 0;
+}

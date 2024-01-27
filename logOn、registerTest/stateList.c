@@ -6,6 +6,8 @@
 
 
 
+/* 修改用户状态 */
+static int stateListModify(stateList * list, const char* Account, int State);
 
 /* 初始化 */
 int stateListInit(stateList ** list)
@@ -22,7 +24,7 @@ int stateListInit(stateList ** list)
 }
 
 /* 新增用户状态 */
-int stateListInsert(stateList * list, char* Account, int Acceptfd, int State)
+int stateListInsert(stateList * list, const char* Account, int Acceptfd)
 {
     if(list == NULL)
     {
@@ -33,7 +35,7 @@ int stateListInsert(stateList * list, char* Account, int Acceptfd, int State)
     memset(Node, 0, sizeof(stateNode));
     strncpy(Node->account, Account, sizeof(char) * ACCOUNT_SIZE);
     Node->acceptfd = Acceptfd;
-    Node->state = State;
+    Node->state = ON_LINE;//登录时默认为1仅在线
 
     Node->next = list->head->next;
     if(list->head->next != NULL)
@@ -47,8 +49,9 @@ int stateListInsert(stateList * list, char* Account, int Acceptfd, int State)
     return 0;
 }
 
+
 /* 修改用户状态 */
-int stateListModify(stateList * list, char* Account, int State)
+static int stateListModify(stateList * list, const char* Account, int State)
 {
 
     if(list == NULL)
@@ -69,8 +72,23 @@ int stateListModify(stateList * list, char* Account, int State)
     return NOT_FIND;
 }
 
-/* 查询账号是否在线 */
-int stateListSearch(stateList* list, char* Account)
+/* 修改指定账号状态为仅在线上 */
+int stateOnlineModify(stateList * list, const char* Account)
+{
+    stateListModify(list, Account, ON_LINE);
+    return 0;
+}
+
+/* 修改指定账号状态为在群聊中 */
+int stateGroupChatModify(stateList * list, const char* Account)
+{
+    stateListModify(list, Account, GROUP_CHAT);
+    return 0;
+}
+
+
+/* 查询账号是否在线,比对账号字符串 */
+int stateListSearch(stateList* list, const char* Account)
 {
     if(list == NULL)
     {
@@ -91,7 +109,7 @@ int stateListSearch(stateList* list, char* Account)
 }
 
 /* 删除指定用户状态 */
-int stateListAppointValDel(stateList* list, char* Account)
+int stateListAppointValDel(stateList* list, const char* Account)
 {
     if(list == NULL)
     {
@@ -108,6 +126,7 @@ int stateListAppointValDel(stateList* list, char* Account)
             {
                 travelNode->next->pre = travelNode->pre;
                 free(travelNode);
+                list->ListSize--;
                 return 0;
             }
             

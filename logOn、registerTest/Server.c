@@ -16,11 +16,6 @@
 #include <sqlite3.h>
 #include "Sqlite3Db.h"
 
-#define SERVER_PORT 8080
-#define MAX_LISTEN  128
-#define LOCAL_IPADDRESS "127.0.0.1"
-#define BUFFER_SIZE 128
-#define COMMUNICATION_SIZE   512
 
 
 
@@ -33,6 +28,7 @@
 
 /*************************/
 pthread_mutex_t stateMutx;
+pthread_mutex_t Db_Mutx;
 stateList* List = NULL;    
 sqlite3 * Data_db;
 /*************************/
@@ -48,12 +44,21 @@ void* threadHandle(void* arg)
     char recvBuf[COMMUNICATION_SIZE];
     //发送缓存区
     char sendBuf[COMMUNICATION_SIZE];
-    
+    /* 用于存放账号密码 */
+    const char* userAccount = NULL;
+    const char* userPassWord = NULL;
+
     /* 线程的工作 */
     while(1)
     {   
+        char** result = NULL;
+        char* errmsg;
+        int rows = 0;
+        int columns = 0;
+        char sqlBuf[BUFFER_SIZE] = {0};
         /* 读客户端信息，客户端和服务端读写缓存区统一为 512 */
         memset(recvBuf, 0, sizeof(recv));
+        
         int readBytes = read(acceptfd, recvBuf, sizeof(recvBuf));
         if(readBytes == 0)//对于while中重复等待的read，这一步是不可少的，否则，将会继续往下执行，然后程序很明显就会报错了
         {
@@ -65,59 +70,30 @@ void* threadHandle(void* arg)
         printf("%s\n", recvBuf);
 
         /* 分析客户端动作 */
-        struct json_object* readObj = json_tokener_parse(recvBuf);//每次parse生成的json对象记得释放！！！
+        
 
+        struct json_object* readObj = json_tokener_parse(recvBuf);//每次parse生成的json对象记得释放！！！
+        
         /* 解析客户端的action */
         struct json_object* actionObj = json_object_object_get(readObj, "action");
+        
         int action = json_object_get_int(actionObj);
-#if 0
-        if(strncmp(action, "duplicateCheck", strlen("duplicateCheck")) == 0)//账号注册查重行动
-        {   //账号查重行动处理函数，to finish......
-            memset(sendBuf, 0, sizeof(sendBuf));
-            strncpy(sendBuf, "available", sizeof(sendBuf) - 1);
-            write(acceptfd, sendBuf, sizeof(sendBuf));
-        }
-        else if(strncmp(action, "register", strlen("register")) == 0)//注册行动
-        {   //注册行动处理函数，to finish......
-            // memset(sendBuf, 0, sizeof(sendBuf));
-            // strncpy(sendBuf, "registerSuccessful", sizeof(sendBuf) - 1);
-            // write(acceptfd, sendBuf, sizeof(sendBuf));
-
-        }
-        else if(strncmp(action, "logOn", strlen("logOn")) == 0)//登录行动
-        {   
-            //解析出传来的账号密码
-            //()先核对账号密码，如果账号密码不存在或者错误，返回checkError
-            //如果账号密码正确，判断该账户是否已在线，如果在线，返回onLine
-            //如果不在线，服务端处理登陆，返回用户的json格式字符串信息
-
-            memset(sendBuf, 0, sizeof(sendBuf));
-            strncpy(sendBuf, "", sizeof(sendBuf) - 1);
-            write(acceptfd, sendBuf, sizeof(sendBuf));
-        }
-        else if(strncmp(action, "onLineCheck", strlen("onLineCheck")) == 0)//查询是否在线行动
-        {
-
-        }
-        //to do......
-#endif
+        
         switch (action)
         {
             case DUPLICATE_CHECK://注册账号查重
                 struct json_object* registerAccountObj = json_object_object_get(readObj, "账号");
                 const char* registerAccount = json_object_get_string(registerAccountObj);
-                char** result = NULL;
-                char* errmsg;
-                int rows = 0;
-                int columns = 0;
-                char sqlBuf[BUFFER_SIZE] = {0};
+                
                 /* 通过sprintf生成数据库查询语句 */
                 sprintf(sqlBuf,"SELECT * FROM USERDATA WHERE ID = '%s'", registerAccount);
                 
                 //printf("%s\n", sqlBuf);
 
                 /* 执行sqlite3查询语句 */
+                pthread_mutex_lock(&Db_Mutx);
                 sqlite3_get_table(Data_db, sqlBuf, &result, &rows, &columns, &errmsg);
+                pthread_mutex_unlock(&Db_Mutx);
                 if(rows > 0)//说明有查询结果，该账号已存在
                 {
                     memset(sendBuf, 0, sizeof(sendBuf));
@@ -154,10 +130,15 @@ void* threadHandle(void* arg)
                 /* 生成sqlite3新增语句 */
                 sprintf(sqlStr, "INSERT INTO USERDATA (ID, NAME, AGE, SEX, PASSWORD) VALUES ('%s', '%s', %d, '%s', '%s')", account, name, Age, Sex, password);
                 printf("%s\n", sqlStr);
+
+                /* 加锁 */
+                pthread_mutex_lock(&Db_Mutx);
                 int ret = sqlite3_exec(Data_db, sqlStr, NULL, NULL, NULL);
+                pthread_mutex_unlock(&Db_Mutx);
+
                 if (ret != SQLITE_OK)
                 {
-                    printf("sqlite3_exec2: %s\n", sqlite3_errmsg(Data_db));
+                    printf("sqlite3_exec: %s\n", sqlite3_errmsg(Data_db));
                     exit(1);
                 }
                 /* 回应客户端注册成功 */
@@ -168,12 +149,86 @@ void* threadHandle(void* arg)
                 break;
 
             case LOG_ON ://登录
-                memset(sendBuf, 0, sizeof(sendBuf));
-                strncpy(sendBuf, "onLine", sizeof(sendBuf) - 1);
-                write(acceptfd, sendBuf, sizeof(sendBuf));
-                break;
+            /*  
+                登录，先匹配账号密码，错回复checkError,账号密码正确然后判断是否已经在线，
+                在线就回复online。不在线登陆成功，就回复用户信息
+                1.根据在客户端传来的账号在数据库查修对应的密码，如果查询结果为0，表示账号不存在，回复checkError
+                2.如果查询结果不为0，表示账号存在，然后匹配查询到的密码和客户端的密码，如果密码错误，回复checkError
+                3.如果密码正确，查看是否在线，如果在线，回复online。
+                4.如果不在线，回复用户的信息。
+            */
 
-            case ONLINE_CHECK ://账号是否在线检测
+                struct json_object* AccountObj = json_object_object_get(readObj, "账号");
+                struct json_object* PasswordObj = json_object_object_get(readObj, "密码");
+
+                /* 获取客户端传来的账号密码 */
+                userAccount = json_object_get_string(AccountObj);
+                userPassWord = json_object_get_string(PasswordObj);
+
+                char sqlSelect[BUFFER_SIZE] = {0};
+                /* 生成sqlite3查询语句 */
+                sprintf(sqlSelect,"SELECT PASSWORD FROM USERDATA WHERE ID = '%s'", userAccount);
+
+                /* 上锁 */
+                pthread_mutex_lock(&Db_Mutx);
+                sqlite3_get_table(Data_db, sqlSelect, &result, &rows, &columns, &errmsg);
+                pthread_mutex_unlock(&Db_Mutx);
+                if(rows > 0)//说明有查询结果，该账号存在
+                {
+                    /* 匹配密码,result[0]为属性，result[1]为密码 */
+                    if(strncmp(result[1], userPassWord, strlen(userPassWord)) == 0)
+                    {
+                        /* 账号密码正确, 查询是否在线 */
+                        /* 查询账号是否在线,比对账号字符串 */
+                        pthread_mutex_lock(&stateMutx);
+                        int rc = stateListSearch(List, userAccount);
+                        pthread_mutex_unlock(&stateMutx);
+                        
+                        if(rc == SEARCH_SUCCESS)
+                        {
+                            /* 在线，传回onLine */
+                            memset(sendBuf, 0, sizeof(sendBuf));
+                            strncpy(sendBuf, "onLine", sizeof(sendBuf) - 1);
+                            write(acceptfd, sendBuf, sizeof(sendBuf));
+                        }
+                        else
+                        {
+                            /* 不在线，可以登录，查询数据库所有用户信息，传回用户信息， */
+                            /* 将账号加入在线用户列表 */
+                            pthread_mutex_lock(&stateMutx);
+                            stateListInsert(List, userAccount, acceptfd);
+                            pthread_mutex_unlock(&stateMutx);
+
+                            memset(sendBuf, 0, sizeof(sendBuf));
+                            strncpy(sendBuf, "用户信息", sizeof(sendBuf) - 1);
+                            write(acceptfd, sendBuf, sizeof(sendBuf));
+                        }
+                        
+                    }
+                    else
+                    {
+                        /* 密码错误 */
+                        memset(sendBuf, 0, sizeof(sendBuf));
+                        strncpy(sendBuf, "checkError", sizeof(sendBuf) - 1);
+                        write(acceptfd, sendBuf, sizeof(sendBuf));
+                    }
+                }
+                else//rows等于0，说明该账号在用户信息表中不存在
+                {
+                    /* 账号密码错误 */
+                    memset(sendBuf, 0, sizeof(sendBuf));
+                    strncpy(sendBuf, "checkError", sizeof(sendBuf) - 1);
+                    write(acceptfd, sendBuf, sizeof(sendBuf));
+                }
+                break;
+            case LOG_OUT :
+                /* 将该账号从在线用户列表中删除 */
+                
+                pthread_mutex_lock(&stateMutx);
+                stateListAppointValDel(List, userAccount);
+                pthread_mutex_unlock(&stateMutx);
+
+                break;
 
             default:
                 break;
@@ -181,7 +236,8 @@ void* threadHandle(void* arg)
 
         json_object_put(readObj);
     }
-
+    /* 释放通信句柄 */
+    close(acceptfd);
     /* 线程退出 */
     pthread_exit(NULL);
 }
@@ -201,6 +257,7 @@ int main()
     /* 初始化在线用户列表 */
     stateListInit(&List);
     pthread_mutex_init(&stateMutx, NULL);
+    pthread_mutex_init(&Db_Mutx, NULL);
 
     ret = sqlite3_open("Data.db", &Data_db);
     
@@ -234,5 +291,9 @@ int main()
     }
     
     close(sockfd);
+
+    pthread_mutex_destroy(&stateMutx);
+    pthread_mutex_destroy(&Db_Mutx);
+
     return 0;
 }

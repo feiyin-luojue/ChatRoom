@@ -10,7 +10,7 @@ typedef struct stateNode
 {
     char account[15];
     int acceptfd;
-    int state;//1在线，2，群聊中
+    int state;//1在线，2群聊中
 
     struct stateNode* pre;
     struct stateNode* next;
@@ -37,22 +37,25 @@ enum STATUS_CODE
 /* 初始化 */
 int stateListInit(stateList ** list);
 
-/* 新增用户状态 */
-int stateListInsert(stateList * list, char* Account, int Acceptfd, int State);
+/* 新增用户状态, 默认上线 */
+int stateListInsert(stateList * list, const char* Account, int Acceptfd);
 
-/* 修改用户状态 */
-int stateListModify(stateList * list, char* Account, int State);
+/* 修改指定账号状态为在群聊中 */
+int stateGroupChatModify(stateList * list, const char* Account);
 
-/* 查询账号是否在线 */
-int stateListSearch(stateList* list, char* Account);
+/* 修改指定账号状态为仅在线上 */
+int stateOnlineModify(stateList * list, const char* Account);
+
+
+/* 查询账号是否在线,比对账号字符串 */
+int stateListSearch(stateList* list, const char* Account);
 
 /* 删除指定用户状态 */
-int stateListAppointValDel(stateList* list, char* Account);
+int stateListAppointValDel(stateList* list, const char* Account);
 
 /* 群发 */
 
 
 /* 销毁 */
 int stateListDestroy(stateList * list);
-
 #endif

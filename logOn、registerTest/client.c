@@ -13,10 +13,7 @@
 #include "Func.h"
 
 
-#define SERVER_PORT 8080
-#define SERVER_IP "127.0.0.1"
-#define BUFFER_SIZE 128
-#define COMMUNICATION_SIZE 512
+
 
 
 int main()
@@ -28,13 +25,18 @@ int main()
     char buf[COMMUNICATION_SIZE];
     memset(buf, 0, sizeof(buf));
     /* 注册 */
-    Register(sockfd, buf);
-    printf("%s\n", buf);
-    memset(buf, 0, sizeof(buf));
+    // Register(sockfd, buf);
+    // printf("%s\n", buf);
+    // memset(buf, 0, sizeof(buf));
     /* 登录 */
     logon(sockfd, buf);
-    printf("%s\n", buf);
+    //printf("%s\n", buf);
+    
+    sleep(20);
 
+    logOut(sockfd);
+
+    
     
     close(sockfd);
     return 0;
