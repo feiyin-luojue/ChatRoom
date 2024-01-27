@@ -111,16 +111,20 @@ void* threadHandle(void* arg)
                 int rows = 0;
                 int columns = 0;
                 char sqlBuf[BUFFER_SIZE] = {0};
+                /* 通过sprintf生成数据库查询语句 */
                 sprintf(sqlBuf,"SELECT * FROM USERDATA WHERE ID = '%s'", registerAccount);
-                printf("%s\n", sqlBuf);
+                
+                //printf("%s\n", sqlBuf);
+
+                /* 执行sqlite3查询语句 */
                 sqlite3_get_table(Data_db, sqlBuf, &result, &rows, &columns, &errmsg);
-                if(rows > 0)
+                if(rows > 0)//说明有查询结果，该账号已存在
                 {
                     memset(sendBuf, 0, sizeof(sendBuf));
                     strncpy(sendBuf, "UnAvailable", sizeof(sendBuf) - 1);
                     write(acceptfd, sendBuf, sizeof(sendBuf));
                 }
-                else
+                else//rows等于0，说明该账号在用户信息表中不存在
                 {
                     memset(sendBuf, 0, sizeof(sendBuf));
                     strncpy(sendBuf, "available", sizeof(sendBuf) - 1);
@@ -139,15 +143,15 @@ void* threadHandle(void* arg)
                 struct json_object* userAgeObj = json_object_object_get(userDataObj, "年龄");
                 struct json_object* userAccountObj = json_object_object_get(userDataObj, "账号");
                 struct json_object* userPasswordObj = json_object_object_get(userDataObj, "密码");
-                /*  */
+                /* 获取各个json对象的C字符串 */
                 const char *name = json_object_get_string(userNameObj);
                 const char *Sex = json_object_get_string(userSexObj);
                 int Age = json_object_get_int(userAgeObj);
                 const char *account = json_object_get_string(userAccountObj);
                 const char *password = json_object_get_string(userPasswordObj);
                 
-
-                char sqlStr[128] = {0};
+                char sqlStr[BUFFER_SIZE] = {0};
+                /* 生成sqlite3新增语句 */
                 sprintf(sqlStr, "INSERT INTO USERDATA (ID, NAME, AGE, SEX, PASSWORD) VALUES ('%s', '%s', %d, '%s', '%s')", account, name, Age, Sex, password);
                 printf("%s\n", sqlStr);
                 int ret = sqlite3_exec(Data_db, sqlStr, NULL, NULL, NULL);
@@ -156,10 +160,11 @@ void* threadHandle(void* arg)
                     printf("sqlite3_exec2: %s\n", sqlite3_errmsg(Data_db));
                     exit(1);
                 }
-                
+                /* 回应客户端注册成功 */
                 memset(sendBuf, 0, sizeof(sendBuf));
                 strncpy(sendBuf, "registerSuccessful", sizeof(sendBuf) - 1);
                 write(acceptfd, sendBuf, sizeof(sendBuf));
+
                 break;
 
             case LOG_ON ://登录
