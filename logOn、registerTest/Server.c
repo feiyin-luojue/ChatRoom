@@ -45,25 +45,25 @@ void* threadHandle(void* arg)
     char recvBuf[COMMUNICATION_SIZE];
     //发送缓存区
     char sendBuf[COMMUNICATION_SIZE];
-
+    /* sql语句字符串数组 */
+    char sqlBuf[BUFFER_SIZE];
     /* 用于存放账号密码 */
     const char* userAccount = NULL;
     const char* userPassWord = NULL;
 
-    /* 存放查询语句 */
-    char sqlSelect[BUFFER_SIZE] = {0};
-
     /* 线程的工作 */
     while(1)
     {   
+        /* 这一块要不要考虑放while(1)外面去 */
         char** result = NULL;
         char* errmsg;
         int rows = 0;
         int columns = 0;
-        char sqlBuf[BUFFER_SIZE] = {0};
+        
         /* 读客户端信息，客户端和服务端读写缓存区统一为 512 */
         memset(recvBuf, 0, sizeof(recvBuf));
         memset(sendBuf, 0, sizeof(sendBuf));
+        memset(sqlBuf, 0, sizeof(sqlBuf));
 
         int readBytes = read(acceptfd, recvBuf, sizeof(recvBuf));
         if(readBytes == 0)//对于while中重复等待的read，这一步是不可少的，否则，将会继续往下执行，然后程序很明显就会报错了
@@ -174,12 +174,12 @@ void* threadHandle(void* arg)
 
                         
                         /* 生成sqlite3查询语句 */
-                        sprintf(sqlSelect,"SELECT PASSWORD FROM USER_DATA WHERE ID = '%s'", userAccount);
+                        sprintf(sqlBuf,"SELECT PASSWORD FROM USER_DATA WHERE ID = '%s'", userAccount);
 
                         /* 上锁 */
                         pthread_mutex_lock(&Db_Mutx);
                         /* rows和errmsg的内存结尾记得释放 */
-                        sqlite3_get_table(Data_db, sqlSelect, &result, &rows, &columns, &errmsg);
+                        sqlite3_get_table(Data_db, sqlBuf, &result, &rows, &columns, &errmsg);
                         pthread_mutex_unlock(&Db_Mutx);
                         if(rows > 0)//说明有查询结果，该账号存在
                         {
@@ -226,24 +226,10 @@ void* threadHandle(void* arg)
                             strncpy(sendBuf, "checkError", sizeof(sendBuf) - 1);
                             write(acceptfd, sendBuf, sizeof(sendBuf));
                         }
-                        /* 释放内存 */
-                        sqlite3_free_table(result); // 释放查询结果的内存
-                        if (errmsg != NULL) 
-                        {
-                            sqlite3_free(errmsg); // 释放错误消息的内存
-                        }
-                        break;
-                    }
-                    
-            case PRIVATE_CHAT :
-                {
-                    
+                        
                     break;
                 }
-            // case GROUP_ROOM :
-            //     {
-            //         break;
-            //     }
+
             case ADD_FRIENDS ://添加好友
                 {
                     /* 先查询账号是否正确 */
@@ -305,8 +291,57 @@ void* threadHandle(void* arg)
                         write(acceptfd, sendBuf, sizeof(sendBuf));
                     }
                     break;
-                }    
+                }
 
+            case VIEW_MY_INVITE ://查看我发出的好友邀请结果
+                {   
+                    
+                    
+
+                    break;
+                }
+            case VIEW_OTHER_INVITE ://查看和处理请求加我为好友的验证消息
+                {
+                    /* SELECT * FROM FRIEND_DATA WHERE INVITEE = 'MyAccount' AND DEAL = '还在考虑' */
+                    /* 程序能执行到这个功能，账号密码已经保存在服务端中 */
+                    /* sqlite3查询 */
+                    sprintf(sqlBuf, "SELECT INVITER FROM FRIEND_DATA WHERE INVITEE = '%s' AND DEAL = '还在考虑'", userAccount);
+                    /* 执行sqlite3查询语句 */
+                    pthread_mutex_lock(&Db_Mutx);
+                    sqlite3_get_table(Data_db, sqlBuf, &result, &rows, &columns, &errmsg);
+                    pthread_mutex_unlock(&Db_Mutx);
+
+                    /* 查询结果仅为发起邀请的账号 */
+                    if(rows == 0)
+                    {
+                        /* 说明没有验证消息 */
+                        strncpy(sendBuf, "NotVerifyMessage", sizeof(sendBuf));
+                        write(acceptfd, sendBuf, sizeof(sendBuf));
+                    }
+                    else
+                    {
+                        /* 说明有验证消息，发给客户端 */
+                        int idx = 0;//0是列名
+                        for(idx = 1; idx <= rows; idx++)//这里sqlite3仅查询一个结果
+                        {   
+                            sprintf(sendBuf, "%d.[%s]向您发起了好友邀请", idx, result[idx]);
+                            write(acceptfd, sendBuf, sizeof(sendBuf));
+                        }
+
+                        /* for循环结束后，已经将查询到的result发送完毕，告诉客户端执行下一步操作 */
+                        memset(sendBuf, 0, sizeof(sendBuf));
+                        strncpy(sendBuf, "FINISH", sizeof(sendBuf));    
+                        write(acceptfd, sendBuf, sizeof(sendBuf));
+
+                        /* 读取客户端下一步操作指令 */
+                        /*  */
+                        memset(recvBuf, 0, sizeof(recvBuf));
+                        read(acceptfd, recvBuf, sizeof(recvBuf));
+
+                    }
+
+                    break;
+                }
             case LOG_OUT ://退出登录
                 {
                     /* 将该账号从在线用户列表中删除 */

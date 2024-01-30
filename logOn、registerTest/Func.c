@@ -265,7 +265,7 @@ int Register(int sockfd, char *buf)
         }
     }
 
-/* 用户注册密码 */
+
     int flag = 0;
     int hasCapitalEnglish = 0;
     int hasLowercaseEnglish = 0;
@@ -480,7 +480,7 @@ int logon(int sockfd, char* buf)
 
         memset(sendBuf, 0, sizeof(sendBuf));
         strncpy(sendBuf, str, sizeof(sendBuf) - 1);
-        /* 将json格式的字符串发送给客户端 */
+        /* 将json格式的字符串发送给服务端 */
         write(sockfd, sendBuf, sizeof(sendBuf));
 
         /* 等待服务器回应 */
@@ -648,16 +648,72 @@ int AddFriend(int sockfd, char* MyAccount)
     return 0;
 }
 
-/* 查看和处理请求加我为好友的验证消息 */
-int viewMyInvite(int sockfd, char* MyAccount)
-{
-
-    return 0;   
-}
-
 /* 查看我发出去的好友邀请处理结果 */
-int viewOtherInvite(int sockfd, char* MyAccount)
-{
+int viewMyInvite(int sockfd)
+{   
+    
 
     return 0;   
 }
+
+/* 查看和处理请求加我为好友的验证消息 */
+int viewOtherInvite(int sockfd)
+{
+    /* 客户端已经存放着账号和密码 */
+    /* SELECT * FROM FRIEND_DATA WHERE INVITEE = 'MyAccount' AND DEAL = '正在考虑' */
+
+    char sendBuf[COMMUNICATION_SIZE];
+    char recvBuf[COMMUNICATION_SIZE];
+
+    struct json_object* viewMyInvites = json_object_new_object();
+    /* 定义logOn登录行动并绑定数据 */
+    json_object_object_add(viewMyInvites, "action", json_object_new_int(VIEW_OTHER_INVITE));
+    const char* str = json_object_to_json_string(viewMyInvites);
+
+    memset(sendBuf, 0, sizeof(sendBuf));
+    strncpy(sendBuf, str, sizeof(sendBuf));
+    write(sockfd, sendBuf, sizeof(sendBuf));
+    
+    int flag = 0;
+    /* 接收和打印服务端发来的数据 */
+    while(1)
+    {
+        memset(recvBuf, 0, sizeof(recvBuf));
+        read(sockfd, recvBuf, sizeof(recvBuf));
+        if(strncmp(recvBuf, "NotVerifyMessage", strlen("NotVerifyMessage")) == 0)
+        {
+            printf("暂无他人向您发起好友请求\n");
+            break;/* 从这跳出，flag未被修改 */
+        }
+        else
+        {   
+            /* 服务器告诉客户端读取完毕，可以停止读了 */
+            if(strncmp(recvBuf, "FINISH", strlen("FINISH")) == 0)
+            {
+                flag = 1;/* 从这里跳出，flag被修改为1 */
+                break;//进入下一步客户端的执行
+            }
+            else
+            {
+                /* 程序在这里执行说明服务端传来的是验证消息，打印 */
+                printf("%s\n", recvBuf);
+            }
+        }
+    }
+
+    /* 判断从哪种情况跳出来的 */
+    if(flag == 1)
+    {
+        /* 从这里跳出说明有验证消息 */
+        
+    }
+    else
+    {
+
+    }
+
+    
+
+    return 0;   
+}
+

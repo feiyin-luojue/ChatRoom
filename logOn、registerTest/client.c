@@ -27,15 +27,15 @@ int main()
     /* 注册 */
     //Register(sockfd, buf);
     //printf("%s\n", buf);
-    // memset(buf, 0, sizeof(buf));
+    //memset(buf, 0, sizeof(buf));
     /* 登录 */
-    //logon(sockfd, buf);
+    logon(sockfd, buf);
     //printf("%s\n", buf);
-    AddFriend(sockfd, "1111111111");
+    //AddFriend(sockfd, "3333333333");
+    viewOtherInvite(sockfd);
+    sleep(30);
 
-    sleep(10);
-
-    //logOut(sockfd);
+    logOut(sockfd);
 
     
     

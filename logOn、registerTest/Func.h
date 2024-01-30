@@ -62,4 +62,7 @@ int logOut(int sockfd);
 /* 添加好友 */
 int AddFriend(int sockfd, char* MyAccount);
 
+/* 查看和处理请求加我为好友的验证消息 */
+int viewOtherInvite(int sockfd);
+
 #endif  //_FUNC_H_
