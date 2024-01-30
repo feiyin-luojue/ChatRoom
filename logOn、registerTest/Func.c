@@ -14,10 +14,10 @@
 
 
 #define MAX_LISTEN  128
+#define COMMUNICATION_SIZE   256
 #define SERVER_PORT 8080
 #define SERVER_IP "127.0.0.1"
-#define BUFFER_SIZE 128
-#define COMMUNICATION_SIZE 256
+#define BUFFER_SIZE 256
 
 /* 服务端套接字创建函数，传出参数获取套接字描述符，第二个参数为端口号 */
 int SrSocket(int * sockfdGet, int serverPort)
@@ -201,7 +201,7 @@ int Register(int sockfd, char *buf)
         /* 等待服务端回应 */
         read(sockfd, recvBuf, sizeof(recvBuf));
         /* 服务器发送available表示该账号可用 */
-        if (strncmp(recvBuf, "available", strlen("available")) == 0)
+        if (strncmp(recvBuf, "Available", strlen("Available")) == 0)
         {
             break;
         }
@@ -520,6 +520,7 @@ int logon(int sockfd, char* buf)
     return ret;
 }
 
+/* 退出登录 */
 int logOut(int sockfd)
 {
     char sendBuf[COMMUNICATION_SIZE];
@@ -531,7 +532,7 @@ int logOut(int sockfd)
     struct json_object* logOutObj = json_object_new_object();
     
     json_object_object_add(logOutObj, "action", json_object_new_int(LOG_OUT));
-    json_object_object_add(logOutObj, "contain", json_object_new_string("hello"));
+    //json_object_object_add(logOutObj, "contain", json_object_new_string("hello"));
     
     const char* str = json_object_to_json_string(logOutObj);
 
@@ -544,5 +545,119 @@ int logOut(int sockfd)
     
     printf("已退出登录");
 
+    json_object_put(logOutObj);
     return 0;
+}
+
+
+/* 添加好友 */
+int AddFriend(int sockfd, char* MyAccount)
+{
+    char account[BUFFER_SIZE];
+    char sendBuf[COMMUNICATION_SIZE];
+    char recvBuf[COMMUNICATION_SIZE];
+    struct json_object* FrAddObj = json_object_new_object();
+
+    int true = 0;
+    while(!true)
+    {
+        int flag = 0;
+        int flag1 = 1;
+        /* 获取纯数字的账号 */
+        while (flag == 0)
+        {
+            flag = 1;
+            memset(account, 0, sizeof(char) * BUFFER_SIZE);
+            system("clear");
+            printf("对方账号:");
+            scanf("%s", account);
+            if (strlen(account) != 10)
+            {
+                system("clear");
+                if (flag1 == 1)
+                {
+                    printf("请输入10位整数\n");
+                }
+                else
+                {
+                    printf("小只因：不识字吗?\n");
+                }
+                flag1 = 0;
+                flag = 0;
+                sleep(1);
+                
+            }
+            else
+            {
+                for (int idx = 0; idx < strlen(account); idx++)
+                {
+                    if (account[idx] < '0' || account[idx] > '9')
+                    {
+                        printf("无效的输入\n");
+                        sleep(1);
+                        flag = 0;
+                        break;
+                    }
+                }
+            }
+            
+            if(flag == 1)
+            {
+                if(strncmp(account, MyAccount, sizeof(char) * 10) == 0)
+                {
+                    printf("请不要输入您自己的账号\n");
+                    sleep(1);
+                    flag = 0;
+                }
+            }
+            while (getchar() != '\n');//
+        }
+
+        /* 定义logOn登录行动并绑定数据 */
+        json_object_object_add(FrAddObj, "action", json_object_new_int(ADD_FRIENDS));
+        json_object_object_add(FrAddObj, "INVITER", json_object_new_string(MyAccount));//我是邀请者
+        json_object_object_add(FrAddObj, "INVITEE", json_object_new_string(account));//被邀请者
+        const char* str = json_object_to_json_string(FrAddObj);
+
+        memset(sendBuf, 0, sizeof(sendBuf));
+        strncpy(sendBuf, str, sizeof(sendBuf) - 1);
+
+        write(sockfd, sendBuf, sizeof(sendBuf));
+
+        memset(recvBuf, 0, sizeof(recvBuf));
+        read(sockfd, recvBuf, sizeof(recvBuf));
+
+        if(strncmp(recvBuf, "NotExists", strlen("NotExists")) == 0)
+        {
+            /* 账号不存在 */
+            printf("该账号不存在\n");
+        }
+        else if(strncmp(recvBuf, "IsFriend", strlen("IsFriend")) == 0)
+        {
+            printf("您和对方已经是好友了\n");
+        }
+        else
+        {
+            /* 发送邀请成功 */
+            printf("好友邀请发送成功\n");
+            true = 1;
+        }
+    }
+
+    json_object_put(FrAddObj);
+    return 0;
+}
+
+/* 查看和处理请求加我为好友的验证消息 */
+int viewMyInvite(int sockfd, char* MyAccount)
+{
+
+    return 0;   
+}
+
+/* 查看我发出去的好友邀请处理结果 */
+int viewOtherInvite(int sockfd, char* MyAccount)
+{
+
+    return 0;   
 }

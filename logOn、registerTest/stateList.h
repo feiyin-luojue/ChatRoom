@@ -46,7 +46,6 @@ int stateGroupChatModify(stateList * list, const char* Account);
 /* 修改指定账号状态为仅在线上 */
 int stateOnlineModify(stateList * list, const char* Account);
 
-
 /* 查询账号是否在线,比对账号字符串 */
 int stateListSearch(stateList* list, const char* Account);
 
@@ -54,7 +53,7 @@ int stateListSearch(stateList* list, const char* Account);
 int stateListAppointValDel(stateList* list, const char* Account);
 
 /* 群发 */
-
+// int stateListGroupSend(stateList* list, const char* sendBuf);
 
 /* 销毁 */
 int stateListDestroy(stateList * list);

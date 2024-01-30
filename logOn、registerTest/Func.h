@@ -6,14 +6,43 @@
 #define COMMUNICATION_SIZE   256
 #define SERVER_PORT 8080
 #define SERVER_IP "127.0.0.1"
-#define BUFFER_SIZE 128
+#define BUFFER_SIZE 256
 
+/***************************************/
+/* 注册账号查重 */
+#define DUPLICATE_CHECK         0
+/* 注册 */
+#define REGISTER                1
+/* 登录 */
+#define LOG_ON                  2
+/* 登陆时账号是否已在线检测 */
+#define ONLINE_CHECK            3
+/* 退出登录 */
+#define LOG_OUT                 4
+/* 私聊 */
+#define PRIVATE_CHAT            5
+/* 群聊 */
+#define ON_GROUP_CHAT           6
+/* 查看好友列表 */
+#define VIEW_FRIEND_LIST        7
+/* 查看群聊列表 */                
+#define VIEW_GROUP_LIST         8
+/* 添加好友 */
+#define ADD_FRIENDS             9
+/* 查看我发出的好友邀请结果 */
+#define VIEW_MY_INVITE          10
+/* 查看和处理别人给我发来的的好友邀请 */
+#define VIEW_OTHER_INVITE       11
+/* 删除好友 */
+#define DEL_FRIENDS             12
+/* 创建群聊 */
+#define CRETAE_GROUP            13
+/* 查看我创建的的群聊 */
+#define VIEW_MY_GROUP           14
+/* 删除我创建的群聊 */        
 
-#define DUPLICATE_CHECK     0
-#define REGISTER            1
-#define LOG_ON              2
-#define ONLINE_CHECK        3
-#define LOG_OUT             4
+/***************************************/
+
 
 /* 服务端套接字创建函数，传出参数获取套接字描述符，第二个参数为端口号 */
 int SrSocket(int * sockfdGet, int serverPort);
@@ -21,7 +50,7 @@ int SrSocket(int * sockfdGet, int serverPort);
 /* 客户端创建套接字函数，传出参数获取套接字描述符，第二个参数为服务端端口号，第三个参数为服务端IP */
 int clnSocket(int * sockfdGet, int server_port, const char* server_ip);
 
-/* 新建一个用户信息 */
+/* 注册一个用户信息 */
 int Register(int sockfd, char *buf);
 
 /* 登录 */ /* 参数1：套接字文件描述符，参数2：用于接服务器传回的个人信息 */
@@ -29,5 +58,8 @@ int logon(int sockfd, char* buf);
 
 /* 退出登录 */
 int logOut(int sockfd);
+
+/* 添加好友 */
+int AddFriend(int sockfd, char* MyAccount);
 
 #endif  //_FUNC_H_

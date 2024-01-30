@@ -124,12 +124,11 @@ int stateListAppointValDel(stateList* list, const char* Account)
             travelNode->pre->next = travelNode->next;
             if(travelNode->next != NULL)
             {
-                travelNode->next->pre = travelNode->pre;
-                free(travelNode);
-                list->ListSize--;
-                return 0;
+                travelNode->next->pre = travelNode->pre; 
             }
-            
+            free(travelNode);
+            list->ListSize--;
+            return 0;
         }
 
         travelNode = travelNode->next;
@@ -137,6 +136,15 @@ int stateListAppointValDel(stateList* list, const char* Account)
 
     return NOT_FIND;
 }
+
+/* 群发 */
+int stateListGroupSend(stateList* list, const char* sendBuf)
+{
+    
+
+    return 0;
+}
+
 
 /* 销毁 */
 int stateListDestroy(stateList * list)
@@ -147,7 +155,7 @@ int stateListDestroy(stateList * list)
     }
 
     stateNode * travelNode = list->head->next;
-
+    /* 释放节点 */
     while(travelNode != NULL)
     {
         travelNode->pre->next = travelNode->next;
@@ -155,19 +163,15 @@ int stateListDestroy(stateList * list)
         {
             travelNode->next->pre = travelNode->pre;
         }
-        if(travelNode != NULL)
-        {
-            free(travelNode);
-        }
-        
+        free(travelNode);
         travelNode = list->head->next;
     }
-
+    /* 释放头节点 */
     if(list->head != NULL)
     {
         free(list->head);
     }
-
+    /* 释放列表 */
     if(list != NULL)
     {
         free(list);

@@ -25,16 +25,17 @@ int main()
     char buf[COMMUNICATION_SIZE];
     memset(buf, 0, sizeof(buf));
     /* 注册 */
-    // Register(sockfd, buf);
-    // printf("%s\n", buf);
+    //Register(sockfd, buf);
+    //printf("%s\n", buf);
     // memset(buf, 0, sizeof(buf));
     /* 登录 */
-    logon(sockfd, buf);
+    //logon(sockfd, buf);
     //printf("%s\n", buf);
-    
-    sleep(20);
+    AddFriend(sockfd, "1111111111");
 
-    logOut(sockfd);
+    sleep(10);
+
+    //logOut(sockfd);
 
     
     
