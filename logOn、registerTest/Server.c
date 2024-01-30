@@ -253,7 +253,7 @@ void* threadHandle(void* arg)
                     if(rows > 0)//说明有查询结果，该账号存在
                     {
                         /* 在好友表中查询是否已经是好友 */
-                        sprintf(sqlBuf,"SELECT * FROM FRIEND_DATA WHERE (INVITER = '%s' AND INVITEE = '%s' AND DEAL = '好友') OR (INVITER = '%s' AND INVITEE = '%s' AND DEAL = '好友')", inviter, invitee, invitee, inviter);
+                        sprintf(sqlBuf,"SELECT * FROM FRIEND_DATA WHERE (INVITER = '%s' AND INVITEE = '%s' AND DEAL = '好友') OR (INVITER = '%s' AND INVITEE = '%s' AND DEAL = '好友') OR (INVITER = '%s' AND INVITEE = '%s' AND DEAL = '同意') OR (INVITER = '%s' AND INVITEE = '%s' AND DEAL = '同意')", inviter, invitee, invitee, inviter, inviter, invitee, invitee, inviter);
                         
                         /* 分开分配，分开释放，防止内存泄漏 */
                         char** tmpResult = NULL;
