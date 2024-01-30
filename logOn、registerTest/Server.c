@@ -295,11 +295,65 @@ void* threadHandle(void* arg)
 
             case VIEW_MY_INVITE ://查看我发出的好友邀请结果
                 {   
-                    
-                    
+                    sprintf(sqlBuf, "SELECT * FROM FRIEND_DATA WHERE INVITER = '%s' AND DEAL != '好友';", userAccount);
+                    /* 执行sqlite3查询语句 */
+                    pthread_mutex_lock(&Db_Mutx);
+                    sqlite3_get_table(Data_db, sqlBuf, &result, &rows, &columns, &errmsg);
+                    pthread_mutex_unlock(&Db_Mutx);
 
+                    if(rows != 0)
+                    {
+                        int idx = 0;
+                        int jdx = 4;//012为列名，4为第一个invitee,5为第一个DEAL,7为第二个invitee......
+                        for(idx = 1; idx <= rows; idx++)
+                        {
+                            /* 第一个%s为接收方的名字，第二个%s为处理情况 */
+                            sprintf(sendBuf, "%d.[%s]%s您的好友邀请", idx, result[jdx], result[jdx + 1]);
+                            write(acceptfd, sendBuf, sizeof(sendBuf));
+
+                            char **tmpResult = NULL;
+                            if(strncmp(result[jdx + 1], "同意", strlen("同意")) == 0)
+                            {   
+                                /* 将DEAL更新为好友 */
+                                sprintf(sqlBuf, "UPDATE FRIEND_DATA SET DEAL = '好友' WHERE INVITER = '%s' AND INVITEE = '%s';", result[jdx - 1], result[jdx]);
+                                
+                                /* 执行sql语句 */
+                                pthread_mutex_lock(&Db_Mutx);
+                                sqlite3_get_table(Data_db, sqlBuf, &tmpResult, NULL, NULL, &errmsg);
+                                pthread_mutex_unlock(&Db_Mutx);
+                            }
+                            else if(strncmp(result[jdx + 1], "拒绝", strlen("拒绝")) == 0)
+                            {
+                                /* 删除对应的DEAL数据 */
+                                sprintf(sqlBuf, "DELETE FROM FRIEND_DATA WHERE INVITER = '%s' AND INVITEE = '%s' AND DEAL = '拒绝';", result[jdx - 1], result[jdx]);
+                                
+                                /* 执行sql语句 */
+                                pthread_mutex_lock(&Db_Mutx);
+                                sqlite3_get_table(Data_db, sqlBuf, &tmpResult, NULL, NULL, &errmsg);
+                                pthread_mutex_unlock(&Db_Mutx);
+                            }
+
+                            jdx += 3; //jdx移到下一个对应的位置
+
+                            if(tmpResult != NULL)
+                            {
+                                sqlite3_free_table(tmpResult);
+                            }
+                        }
+                        /* 结束了就告诉客户端查询结束 */
+                        memset(sendBuf, 0, sizeof(sendBuf));
+                        strncpy(sendBuf, "FINISH", sizeof(sendBuf));
+                        write(acceptfd, sendBuf, sizeof(sendBuf));
+                    }
+                    else
+                    {   
+                        /* 没有发给他人的待处理好友邀请 */
+                        strncpy(sqlBuf, "NotInvite", sizeof(sqlBuf) - 1);
+                        write(acceptfd, sqlBuf, sizeof(sqlBuf));
+                    }
                     break;
                 }
+
             case VIEW_OTHER_INVITE ://查看和处理请求加我为好友的验证消息
                 {
                     /* SELECT * FROM FRIEND_DATA WHERE INVITEE = 'MyAccount' AND DEAL = '还在考虑' */
@@ -337,7 +391,36 @@ void* threadHandle(void* arg)
                         /*  */
                         memset(recvBuf, 0, sizeof(recvBuf));
                         read(acceptfd, recvBuf, sizeof(recvBuf));
+                        
+                        /* 解析客户端需求 */
+                        struct json_object* choicesObj = json_tokener_parse(recvBuf);
+                        struct json_object* NumsChoiceObj = json_object_object_get(choicesObj, "NumsChoice");
+                        struct json_object* choiceObj = json_object_object_get(choicesObj, "choice"); 
+                        
+                        /* 选择编号和选择 */
+                        int NumsChoice = json_object_get_int(NumsChoiceObj);
+                        int choice = json_object_get_int(choiceObj);
+                        
+                        char* Deal = NULL;
+                        if(choice == 0)
+                        {
+                            Deal = "拒绝";
+                        }
+                        else if(choice == 1)
+                        {
+                            Deal = "同意";
+                        }
+                        
 
+                        char **tmpResult = NULL;
+                        /* 执行sql语句 */
+                        sprintf(sqlBuf, "UPDATE FRIEND_DATA SET DEAL = '%s' WHERE INVITEE = '%s' AND INVITER = '%s';", Deal, userAccount, result[NumsChoice]);
+                        pthread_mutex_lock(&Db_Mutx);
+                        sqlite3_get_table(Data_db, sqlBuf, &tmpResult, NULL, NULL, &errmsg);
+                        pthread_mutex_unlock(&Db_Mutx);
+
+                        sqlite3_free_table(tmpResult);
+                        json_object_put(choicesObj);
                     }
 
                     break;

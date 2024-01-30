@@ -65,4 +65,7 @@ int AddFriend(int sockfd, char* MyAccount);
 /* 查看和处理请求加我为好友的验证消息 */
 int viewOtherInvite(int sockfd);
 
+/* 查看我发出去的好友邀请处理结果 */
+int viewMyInvite(int sockfd);
+
 #endif  //_FUNC_H_

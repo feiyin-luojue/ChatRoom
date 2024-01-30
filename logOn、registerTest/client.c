@@ -32,13 +32,12 @@ int main()
     logon(sockfd, buf);
     //printf("%s\n", buf);
     //AddFriend(sockfd, "3333333333");
-    viewOtherInvite(sockfd);
+    //viewOtherInvite(sockfd);
+    viewMyInvite(sockfd);
     sleep(30);
 
     logOut(sockfd);
 
-    
-    
     close(sockfd);
     return 0;
 }

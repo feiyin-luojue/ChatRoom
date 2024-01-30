@@ -216,22 +216,22 @@ int Register(int sockfd, char *buf)
     printf("昵称：");
     scanf("%s", name);
 
-    int sexchoice = 0;
+    int sexNumsChoice = 0;
     while (1)
     {
         system("clear");
         printf("选择性别(1.男 2.女):");
-        scanf("%d", &sexchoice);
+        scanf("%d", &sexNumsChoice);
         /* 清空缓存区 */
         while (getchar() != '\n');
 
-        if (sexchoice == 1)
+        if (sexNumsChoice == 1)
         {
             strncpy(sex, "男", sizeof(sex) - 1);
             break;
         }
 
-        if (sexchoice == 2)
+        if (sexNumsChoice == 2)
         {
             strncpy(sex, "女", sizeof(sex) - 1);
             break;
@@ -651,8 +651,49 @@ int AddFriend(int sockfd, char* MyAccount)
 /* 查看我发出去的好友邀请处理结果 */
 int viewMyInvite(int sockfd)
 {   
-    
+    //SELECT * FROM FRIEND_DATA WHERE (INVITER = '我' AND DEAL != '好友');
+    char sendBuf[COMMUNICATION_SIZE];
+    char recvBuf[COMMUNICATION_SIZE];
 
+    struct json_object* viewMyInvites = json_object_new_object();
+
+    /* 定义logOn登录行动并绑定数据 */
+    json_object_object_add(viewMyInvites, "action", json_object_new_int(VIEW_MY_INVITE));
+    const char* str = json_object_to_json_string(viewMyInvites);
+
+    memset(sendBuf, 0, sizeof(sendBuf));
+    strncpy(sendBuf, str, sizeof(sendBuf));
+    write(sockfd, sendBuf, sizeof(sendBuf));
+
+    while(1)
+    {
+        memset(recvBuf, 0, sizeof(recvBuf));
+        read(sockfd, recvBuf, sizeof(recvBuf));
+
+        /* 服务器告诉客户端读取完毕，可以停止读了 */
+        if(strncmp(recvBuf, "NotInvite", strlen("NotInvite")) == 0)
+        {
+
+            printf("您暂无发送给他人的好友邀请\n");
+            break;//进入下一步客户端的执行
+        }
+        else
+        {
+            /* 服务器告诉客户端读取完毕，可以停止读了 */
+            if(strncmp(recvBuf, "FINISH", strlen("FINISH")) == 0)
+            {
+                break;//进入下一步客户端的执行
+            }
+            else
+            {
+                /* 程序在这里执行说明服务端传来的是验证消息，打印 */
+                printf("%s\n", recvBuf);
+            }
+        }
+
+    }
+
+    json_object_put(viewMyInvites);
     return 0;   
 }
 
@@ -665,16 +706,18 @@ int viewOtherInvite(int sockfd)
     char sendBuf[COMMUNICATION_SIZE];
     char recvBuf[COMMUNICATION_SIZE];
 
-    struct json_object* viewMyInvites = json_object_new_object();
+    struct json_object* viewOtherInvites = json_object_new_object();
     /* 定义logOn登录行动并绑定数据 */
-    json_object_object_add(viewMyInvites, "action", json_object_new_int(VIEW_OTHER_INVITE));
-    const char* str = json_object_to_json_string(viewMyInvites);
+    json_object_object_add(viewOtherInvites, "action", json_object_new_int(VIEW_OTHER_INVITE));
+    const char* str = json_object_to_json_string(viewOtherInvites);
 
     memset(sendBuf, 0, sizeof(sendBuf));
     strncpy(sendBuf, str, sizeof(sendBuf));
     write(sockfd, sendBuf, sizeof(sendBuf));
-    
+
+    int NumsChoice = 0;
     int flag = 0;
+    int nums = 0;/* 用于记录有多少条好友请求 */
     /* 接收和打印服务端发来的数据 */
     while(1)
     {
@@ -697,6 +740,7 @@ int viewOtherInvite(int sockfd)
             {
                 /* 程序在这里执行说明服务端传来的是验证消息，打印 */
                 printf("%s\n", recvBuf);
+                nums++;
             }
         }
     }
@@ -704,16 +748,72 @@ int viewOtherInvite(int sockfd)
     /* 判断从哪种情况跳出来的 */
     if(flag == 1)
     {
-        /* 从这里跳出说明有验证消息 */
+        /* 从这里跳出说明有验证消息,处理请求 */
+        char tmpbuf[BUFFER_SIZE];
+        int flag1 = 0;
         
-    }
-    else
-    {
+        while(flag1 == 0)
+        {
+            flag1 = 1;
+            memset(tmpbuf, 0, sizeof(tmpbuf));
+            printf("输入要处理的编号：\n");
+            scanf("%s", tmpbuf);
+            for(int idx = 0; idx < strlen(tmpbuf); idx++)
+            {
+                if(tmpbuf[idx] < '0' || tmpbuf[idx] > '9')
+                {
+                    printf("无效输入\n");
+                    flag1 = 0;
+                    break;
+                }
+            }
 
-    }
+            if(flag1 == 1)
+            {
+                /* 程序运行到这里说明是有效输入,但是可能不在验证消息选项编号内 */
+                NumsChoice = strtol(tmpbuf, NULL, 10);
+                if(NumsChoice > nums || NumsChoice <= 0)
+                {
+                    printf("无效输入\n");
+                    flag1 = 0;
+                }
+                /* 如果没进入if，则输入时合法且在编号范围内的，此时flag1 = 1 */
+            }
+        }
 
-    
 
+        int choice = -1;
+        while(1)
+        {   
+            system("clear");
+            printf("0.拒绝、1.同意:");
+            scanf("%d", &choice);
+            if(choice == 1 || choice == 0)
+            {
+                break;
+            }
+            printf("请输入正确的选项\n");
+            sleep(1);
+        }
+        
+
+        /* 程序走到这里是有效输入 */
+        /* 将选择发送给服务端 */
+        struct json_object* NumsChoiceObj = json_object_new_object();
+        json_object_object_add(NumsChoiceObj, "NumsChoice", json_object_new_int(NumsChoice));
+        json_object_object_add(NumsChoiceObj, "choice", json_object_new_int(choice));
+        const char* str = json_object_to_json_string(NumsChoiceObj);
+
+        /* 将客户端的选择发送给服务端 */
+        memset(sendBuf, 0, sizeof(sendBuf));
+        strncpy(sendBuf, str, sizeof(sendBuf) - 1);
+        write(sockfd, sendBuf, sizeof(sendBuf));
+
+        printf("处理成功\n");
+        json_object_put(NumsChoiceObj);
+    }    
+
+    json_object_put(viewOtherInvites);
     return 0;   
 }
 
