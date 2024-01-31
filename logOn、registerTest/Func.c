@@ -841,6 +841,7 @@ int viewOtherInvite(int sockfd)
 
 /* 私聊和好友列表 */
 /* 私聊和好友列表结合在一个模块 */
+//SELECT INVITEE FROM FRIEND_DATA WHERE INVITER = '我';
 int privateChat()
 {
 
