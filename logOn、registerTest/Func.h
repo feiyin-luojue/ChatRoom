@@ -16,6 +16,14 @@ typedef struct userData
     char SEX[5];
     char PASSWORD[20];
 }userData;
+
+typedef struct PTH_CONNECT
+{
+    int sockfd;
+    int stop;
+}PTH_CONNECT;
+
+
 /***************************************/
 /* 注册账号查重 */
 #define DUPLICATE_CHECK         0

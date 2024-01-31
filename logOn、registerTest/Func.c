@@ -8,10 +8,16 @@
 #include <netinet/in.h>
 #include <signal.h>
 #include <error.h>
+#include <pthread.h>
 #include <json-c/arraylist.h>
 #include <json-c/json.h>
 #include "Func.h"
+#include "stateList.h"
+#include <sqlite3.h>
+#include "Sqlite3Db.h"
 
+#define CONTINUE    0
+#define STOP        1
 
 #define MAX_LISTEN  128
 #define COMMUNICATION_SIZE   256
@@ -874,7 +880,6 @@ int privateChat(int sockfd)
         else
         {   
             /* 有好友，先接收好友列表 */
-
             if(strncmp(recvBuf, "FINISH", strlen("FINISH")) == 0)
             {   
                 /* 读取结束 */
@@ -883,11 +888,178 @@ int privateChat(int sockfd)
             else
             {
                 printf("%s\n", recvBuf);
+                /* 这里的nums用于记录有多少个好友 */
                 nums++;
             }
                         
         }
 
+    }
+
+    /* 在这里可以通过判断nums的大小来判断上面是从哪里跳出来的 */
+    if(nums != 0)
+    {
+        //草泥马的老子不想写了
+        //你妈的你还想聊天吗？
+        /* 有好友的情况下，进行下一部操作 */
+        int choice = -1;
+        while(1)
+        {
+            printf("选择好友编号聊天(0退出):");
+            scanf("%d", &choice);
+            if(choice < 0 || choice > nums)
+            {
+                printf("\n弱智?\n");
+            }
+            else
+            {
+                break;
+            }
+        }
+        
+        if(choice != 0)
+        {   
+            /* 如果choice不为0，说明弱智客户想和好友聊天，然后我又要为弱智客户堆屎山 */
+            /* 先告诉服务端弱智客户想和哪个好友聊天 */
+            struct  json_object * choiceSend = json_object_new_object();
+            json_object_object_add(choiceSend, "chatChoice", json_object_new_int(choice));
+            const char* Str = json_object_to_json_string(choiceSend);
+
+            memset(sendBuf, 0, sizeof(sendBuf));
+            strncpy(sendBuf, Str, sizeof(sendBuf) - 1);
+    
+            /* 发送行动给服务端 */
+            write(sockfd, sendBuf, sizeof(sendBuf));
+            /* 读写分离发送消息和接收消息 */
+
+
+        }
+        else
+        {   /* choice = 0 */
+            /* 程序运行到这里说明有好友但是弱智客户不想聊天 */
+            /* 告诉服务端弱智客户不想聊天 */
+            
+            memset(sendBuf, 0, sizeof(sendBuf));    
+            strncpy(sendBuf, "NO_CHAT", sizeof(sendBuf));
+            write(sockfd, sendBuf, sizeof(sendBuf));
+            /* 退出函数 */
+        }
+        
+    }
+
+    /* 释放json对象 */
+    json_object_put(friendObj);
+    return 0;
+}
+
+/* 读线程函数 */
+void* readThread(void * arg)
+{
+    /* 线程分离 */
+    pthread_detach(pthread_self());
+
+    char sendBuf[COMMUNICATION_SIZE];
+    char recvBuf[COMMUNICATION_SIZE];
+
+    int sockfd = ((PTH_CONNECT *)arg)->sockfd;
+    memset(sendBuf, 0, sizeof(sendBuf));
+    /* 告诉服务器取消息 */
+    strncpy(sendBuf, "!@#$%^*&^%$#@!_^@%#$#!", strlen("!@#$%^*&^%$#@!_^@%#$#!"));
+
+    while(1)
+    {
+        if(((PTH_CONNECT *)arg)->stop != STOP)
+        {
+            /* ((PTH_CONNECT *)arg)->stop != STOP即传入线程函数的地址的值没有改变 */
+            /* 通知服务端取消息 */
+            write(sockfd, sendBuf, sizeof(sendBuf));
+            memset(recvBuf, 0, sizeof(recvBuf));
+            /* 读服务器传回的消息 */
+            read(sockfd, recvBuf, sizeof(recvBuf));
+            printf("%s", recvBuf);
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    pthread_exit(NULL);
+}
+
+/* 发送和接收消息，读写分离 */
+static int privateMsgChat(int sockfd)
+{
+    /* 需要读写分离 */
+    char sendBuf[COMMUNICATION_SIZE];
+    char recvBuf[COMMUNICATION_SIZE];
+
+    pthread_t tid;
+    PTH_CONNECT pth_Conect;
+
+    pth_Conect.sockfd = sockfd;
+    pth_Conect.stop = CONTINUE;
+    pthread_create(&tid, NULL, readThread, (void*)&pth_Conect);
+
+    while(1)
+    {
+        memset(sendBuf, 0, sizeof(sendBuf));
+        printf("输入(ESC退出):");
+        scanf("%s", sendBuf);
+        if(strlen(sendBuf) == 1 && sendBuf[0] == 27)
+        {
+            /* 输入了ESC键 */
+            /* 停止读线程函数的read */
+            pth_Conect.stop = STOP;
+            memset(sendBuf, 0, sizeof(sendBuf));
+            /* 告诉客户端可以停止读了 */
+            strncpy(sendBuf, "!@%^&$@(#^)!@*+@$#$@", sizeof("!@%^&$@(#^)!@*+@$#$@"));
+            write(sockfd, sendBuf, sizeof(sendBuf));
+            break;
+        }
+        else
+        {
+            /* 要发的消息,传给服务端 */
+            write(sockfd, sendBuf, sizeof(sendBuf));
+        }
+    }
+    return 0;
+}
+
+/* 服务端私聊处理客户端消息 */
+int dealPrivateChat(int acceptfd, char* sender, char* receiver, 哈希消息队列)
+{
+    //"!@#$%^*&^%$#@!_^@%#$#!"  取消息
+    //"!@%^&$@(#^)!@*+@$#$@"  停止读
+    char sendBuf[COMMUNICATION_SIZE];
+    char recvBuf[COMMUNICATION_SIZE];
+
+    while(1)
+    {   
+        memset(recvBuf, 0, sizeof(recvBuf));
+        read(acceptfd, recvBuf, sizeof(recvBuf));
+        if(strncmp(recvBuf, "!@#$%^*&^%$#@!_^@%#$#!", strlen("!@#$%^*&^%$#@!_^@%#$#!")) == 0)
+        {
+            /* 去消息队列中取接收者是客户端和发送者是指定好友的消息，发回给客户端 */
+            char MsgGet[COMMUNICATION_SIZE] = {0};
+            //
+            if(有消息)
+            {
+                //发给客户端
+                write(acceptfd);
+            }
+        }
+        else if(strncmp(recvBuf, "!@%^&$@(#^)!@*+@$#$@", strlen("!@%^&$@(#^)!@*+@$#$@")) == 0)
+        {
+            /* 停止读 */
+            break;
+        }
+        else
+        {
+            /* 聊天消息 */
+            /* 往消息队列中存放消息，接收者为聊天对象， */
+            
+        }
     }
     
 

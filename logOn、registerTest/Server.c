@@ -498,11 +498,8 @@ void* threadHandle(void* arg)
                             {
                                 sprintf(sendBuf, "%d.[%s](离线)", idx, tmpResult[1]);
                             }
-                            /* 用于测试 */
-                            printf("%s\n", sendBuf);
 
                             write(acceptfd, sendBuf, sizeof(sendBuf));
-                            printf("发送成功\n");
                             sqlite3_free_table(tmpResult);
                         }
                         /* 循环结束，告诉客户端可以停止读了 */
@@ -512,8 +509,21 @@ void* threadHandle(void* arg)
 
                         /* 等待客户端指令 */
                         /* 选择和谁聊天 */
-                        //
                         /* 不选择和任何人聊天，退出该case */
+                        memset(recvBuf, 0, sizeof(recvBuf));
+                        read(acceptfd, recvBuf, sizeof(recvBuf));
+                        if(strncmp(recvBuf, "NO_CHAT", strlen("NO_CHAT")) != 0)
+                        {
+                            /* 说明弱智客户端发来的不是NO_CHAT,弱智客户想聊天，发来的内容为choice好友编号 */
+                            struct json_object* chat_choiceObj = json_tokener_parse(recvBuf);
+                            struct json_object* NumsObj = json_object_object_get(chat_choiceObj, "chatChoice");
+                            /* 获取选择result编号 */
+                            int FR_Choice = json_object_get_int(NumsObj);
+                            //result[FR_Choice]客户想要发消息的好友的账号
+                            /* 开始接收客户端发给好友的消息和搜寻消息队列的消息 */
+                            dealPrivateChat(acceptfd, user_Account, result[FR_Choice], 哈希表消息队列);
+                            json_object_put(chat_choiceObj);
+                        }
                     }
 
                     break;

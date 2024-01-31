@@ -41,7 +41,7 @@ int main()
     // viewOtherInvite(sockfd);
     // viewMyInvite(sockfd);
     // sleep(30);
-    //privateChat(sockfd);
+    privateChat(sockfd);
 
     sleep(20);
     logOut(sockfd);
