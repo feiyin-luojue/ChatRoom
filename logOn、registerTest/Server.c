@@ -48,8 +48,8 @@ void* threadHandle(void* arg)
     /* sql语句字符串数组 */
     char sqlBuf[BUFFER_SIZE];
     /* 用于存放账号密码 */
-    const char* userAccount = NULL;
-    const char* userPassWord = NULL;
+    char user_Account[ACCOUNT_SIZE] = {0};
+
 
     /* 线程的工作 */
     while(1)
@@ -64,7 +64,7 @@ void* threadHandle(void* arg)
         memset(recvBuf, 0, sizeof(recvBuf));
         memset(sendBuf, 0, sizeof(sendBuf));
         memset(sqlBuf, 0, sizeof(sqlBuf));
-        printf("ok11111\n");
+
         int readBytes = read(acceptfd, recvBuf, sizeof(recvBuf));
         if(readBytes == 0)//对于while中重复等待的read，这一步是不可少的，否则，将会继续往下执行，然后程序很明显就会报错了
         {
@@ -169,10 +169,11 @@ void* threadHandle(void* arg)
                         struct json_object* PasswordObj = json_object_object_get(readObj, "密码");
 
                         /* 获取客户端传来的账号密码 */
-                        userAccount = json_object_get_string(AccountObj);
-                        userPassWord = json_object_get_string(PasswordObj);
+                        const char* userAccount = json_object_get_string(AccountObj);
+                        const char* userPassWord = json_object_get_string(PasswordObj);
 
-                        
+                        strncpy(user_Account, userAccount, sizeof(user_Account) - 1);
+
                         /* 生成sqlite3查询语句 */
                         sprintf(sqlBuf,"SELECT PASSWORD FROM USER_DATA WHERE ID = '%s'", userAccount);
 
@@ -260,7 +261,8 @@ void* threadHandle(void* arg)
                     /* 获取客户端传来的数据 */
                     const char* inviter = json_object_get_string(inviterObj);//我
                     const char* invitee = json_object_get_string(inviteeObj);//我要加的人
-
+                    printf("%s\n", inviter);
+                    printf("%s\n", invitee);
                     /* 先查询数据库用户信息表中是否存在该账号 */
                     sprintf(sqlBuf,"SELECT * FROM USER_DATA WHERE ID = '%s'", invitee);
 
@@ -315,7 +317,7 @@ void* threadHandle(void* arg)
 
             case VIEW_MY_INVITE ://查看我发出的好友邀请结果
                 {   
-                    sprintf(sqlBuf, "SELECT * FROM FRIEND_DATA WHERE INVITER = '%s' AND DEAL != '好友';", userAccount);
+                    sprintf(sqlBuf, "SELECT * FROM FRIEND_DATA WHERE INVITER = '%s' AND DEAL != '好友';", user_Account);
                     /* 执行sqlite3查询语句 */
                     pthread_mutex_lock(&Db_Mutx);
                     sqlite3_get_table(Data_db, sqlBuf, &result, &rows, &columns, &errmsg);
@@ -379,7 +381,8 @@ void* threadHandle(void* arg)
                     /* SELECT * FROM FRIEND_DATA WHERE INVITEE = 'MyAccount' AND DEAL = '还在考虑' */
                     /* 程序能执行到这个功能，账号密码已经保存在服务端中 */
                     /* sqlite3查询 */
-                    sprintf(sqlBuf, "SELECT INVITER FROM FRIEND_DATA WHERE INVITEE = '%s' AND DEAL = '还在考虑'", userAccount);
+
+                    sprintf(sqlBuf, "SELECT INVITER FROM FRIEND_DATA WHERE INVITEE = '%s' AND DEAL = '还在考虑'", user_Account);
                     /* 执行sqlite3查询语句 */
                     pthread_mutex_lock(&Db_Mutx);
                     sqlite3_get_table(Data_db, sqlBuf, &result, &rows, &columns, &errmsg);
@@ -434,7 +437,7 @@ void* threadHandle(void* arg)
 
                         char **tmpResult = NULL;
                         /* 执行sql语句 */
-                        sprintf(sqlBuf, "UPDATE FRIEND_DATA SET DEAL = '%s' WHERE INVITEE = '%s' AND INVITER = '%s';", Deal, userAccount, result[NumsChoice]);
+                        sprintf(sqlBuf, "UPDATE FRIEND_DATA SET DEAL = '%s' WHERE INVITEE = '%s' AND INVITER = '%s';", Deal, user_Account, result[NumsChoice]);
                         pthread_mutex_lock(&Db_Mutx);
                         sqlite3_get_table(Data_db, sqlBuf, &tmpResult, NULL, NULL, &errmsg);
                         pthread_mutex_unlock(&Db_Mutx);
@@ -445,13 +448,83 @@ void* threadHandle(void* arg)
 
                     break;
                 }
+            case PRIVATE_CHAT : //查看好友列表和私聊
+                {
+                    /* 先查询好友，将存在的好友发过去 */
+                    //SELECT INVITER FROM FRIEND_DATA WHERE INVITEE = '%s' AND DEAL = '好友' UNION SELECT INVITEE FROM FRIEND_DATA WHERE INVITER = '%s' AND DEAL = '好友'
+                    sprintf(sqlBuf, "SELECT INVITER FROM FRIEND_DATA WHERE INVITEE = '%s' AND DEAL = '好友' UNION SELECT INVITEE FROM FRIEND_DATA WHERE INVITER = '%s' AND DEAL = '好友';", user_Account, user_Account);
+                    /* 执行sqlite3查询语句 */
+                    pthread_mutex_lock(&Db_Mutx);
+                    sqlite3_get_table(Data_db, sqlBuf, &result, &rows, &columns, &errmsg);
+                    pthread_mutex_unlock(&Db_Mutx);
+                    
+                    /* 先判断是否有好友 */
+                    if(rows == 0)
+                    {
+                        /* 告诉客户端没有好友 */
+                        strncpy(sendBuf, "NotFriends", sizeof(sendBuf) - 1);
+                        write(acceptfd, sendBuf, sizeof(sendBuf));
+                    }
+                    else
+                    {
+                        /* 用于查询对应的NAME */
+                        char** tmpResult = NULL;
+                        int tmpRows = 0;
+                        int tmpColumns = 0;
+                        char* tmpErrmsg = NULL;
+                        char tmpSql[BUFFER_SIZE] = {0};
+                        printf("HERE\n");
+                        printf("rows:%d\n", rows);
+                        int idx = 0;
+                        for(idx = 1; idx <= rows; idx++)
+                        {   
+                            /* 上锁查询对应的在线状态 */
+                            pthread_mutex_lock(&stateMutx);
+                            int ret = stateListSearch(List, result[idx]);
+                            pthread_mutex_unlock(&stateMutx);
+                            
+                            sprintf(tmpSql, "SELECT NAME FROM USER_DATA WHERE ID = '%s'", result[idx]);
+                            
+                            /* 执行sqlite3查询语句 */
+                            pthread_mutex_lock(&Db_Mutx);
+                            sqlite3_get_table(Data_db, tmpSql, &tmpResult, &tmpRows, &tmpColumns, &tmpErrmsg);
+                            pthread_mutex_unlock(&Db_Mutx);
+
+                            if(ret == SEARCH_SUCCESS)
+                            {
+                                sprintf(sendBuf, "%d.[%s](在线)", idx, tmpResult[1]);
+                            }
+                            else
+                            {
+                                sprintf(sendBuf, "%d.[%s](离线)", idx, tmpResult[1]);
+                            }
+                            /* 用于测试 */
+                            printf("%s\n", sendBuf);
+
+                            write(acceptfd, sendBuf, sizeof(sendBuf));
+                            printf("发送成功\n");
+                            sqlite3_free_table(tmpResult);
+                        }
+                        /* 循环结束，告诉客户端可以停止读了 */
+                        memset(sendBuf, 0, sizeof(sendBuf));
+                        strncpy(sendBuf, "FINISH", sizeof(sendBuf) - 1);
+                        write(acceptfd, sendBuf, sizeof(sendBuf));    
+
+                        /* 等待客户端指令 */
+                        /* 选择和谁聊天 */
+                        //
+                        /* 不选择和任何人聊天，退出该case */
+                    }
+
+                    break;
+                }
             case LOG_OUT ://退出登录
                 {
                     /* 将该账号从在线用户列表中删除 */
                     pthread_mutex_lock(&stateMutx);
-                    stateListAppointValDel(List, userAccount);//登录时的账号存放在userAccount中
+                    stateListAppointValDel(List, user_Account);//登录时的账号存放在userAccount中
                     pthread_mutex_unlock(&stateMutx);
-                    printf("[USER:%s] out the chat Room!\n", userAccount);
+                    printf("[USER:%s] out the chat Room!\n", user_Account);
                     break;
                 }
 

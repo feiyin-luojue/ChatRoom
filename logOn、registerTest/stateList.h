@@ -1,7 +1,7 @@
 #ifndef _STATE_LIST_H_
 #define _STATE_LIST_H_
 
-#define ACCOUNT_SIZE    10
+#define ACCOUNT_SIZE    15
 #define NAME_SIZE       20
 #define ON_LINE         1
 #define GROUP_CHAT      2

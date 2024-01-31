@@ -76,4 +76,9 @@ int viewOtherInvite(int sockfd);
 /* 查看我发出去的好友邀请处理结果 */
 int viewMyInvite(int sockfd);
 
+/* 私聊和好友列表 */
+/* 私聊和好友列表结合在一个模块 */
+//SELECT INVITEE FROM FRIEND_DATA WHERE INVITER = '我';
+int privateChat(int sockfd);
+
 #endif  //_FUNC_H_

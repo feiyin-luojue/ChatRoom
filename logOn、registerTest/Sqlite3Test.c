@@ -5,5 +5,7 @@
 
 int main()
 {
-    
+    sqlite3 * db = NULL;
+    int ret = sqlite3_open("Data.db", &db);
+    char * sql = "SELECT INVITEE FROM FRIEND_DATA WHERE INVITER = '1111111111'"
 }

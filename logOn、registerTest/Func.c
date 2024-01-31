@@ -842,9 +842,54 @@ int viewOtherInvite(int sockfd)
 /* 私聊和好友列表 */
 /* 私聊和好友列表结合在一个模块 */
 //SELECT INVITEE FROM FRIEND_DATA WHERE INVITER = '我';
-int privateChat()
+int privateChat(int sockfd)
 {
+    char sendBuf[COMMUNICATION_SIZE];
+    char recvBuf[COMMUNICATION_SIZE];
 
+    /* 打包行动 */
+    struct json_object* friendObj = json_object_new_object();
+    json_object_object_add(friendObj, "action", json_object_new_int(PRIVATE_CHAT));
+    const char* sendStr = json_object_to_json_string(friendObj);
+
+    memset(sendBuf, 0, sizeof(sendBuf));
+    strncpy(sendBuf, sendStr, sizeof(sendBuf) - 1);
+    
+    /* 发送行动给服务端 */
+    write(sockfd, sendBuf, sizeof(sendBuf));
+
+    /* 计数 */
+    int nums = 0;
+    while(1)
+    {
+        memset(recvBuf, 0, sizeof(recvBuf));
+        read(sockfd, recvBuf, sizeof(recvBuf));
+    
+        if(strncmp(recvBuf, "NotFriends", strlen("NotFriends")) == 0)
+        {
+            /* 无好友 */
+            printf("您暂无好友，请先添加好友\n");
+            break;
+        }
+        else
+        {   
+            /* 有好友，先接收好友列表 */
+
+            if(strncmp(recvBuf, "FINISH", strlen("FINISH")) == 0)
+            {   
+                /* 读取结束 */
+                break;
+            }
+            else
+            {
+                printf("%s\n", recvBuf);
+                nums++;
+            }
+                        
+        }
+
+    }
+    
 
     return 0;
 }

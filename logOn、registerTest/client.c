@@ -34,14 +34,16 @@ int main()
     //memset(buf, 0, sizeof(buf));
     /* 登录 */
     logon(sockfd, &MyData);
-    printf("%s, %s, %d, %s, %s\n", MyData.ID, MyData.NAME, MyData.AGE, MyData.SEX, MyData.PASSWORD);
+    //printf("%s, %s, %d, %s, %s\n", MyData.ID, MyData.NAME, MyData.AGE, MyData.SEX, MyData.PASSWORD);
 
-    printf("%s\n", buf);
-    AddFriend(sockfd, MyData.ID);
-    //viewOtherInvite(sockfd);
-    //viewMyInvite(sockfd);
-    sleep(30);
+    // printf("%s\n", buf);
+    //AddFriend(sockfd, MyData.ID);
+    // viewOtherInvite(sockfd);
+    // viewMyInvite(sockfd);
+    // sleep(30);
+    //privateChat(sockfd);
 
+    sleep(20);
     logOut(sockfd);
 
     close(sockfd);
