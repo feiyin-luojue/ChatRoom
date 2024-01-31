@@ -367,7 +367,7 @@ int Register(int sockfd, char *buf)
 
 
 /* 登录 */ /* 参数1：套接字文件描述符，参数2：用于接服务器传回的个人信息 */
-int logon(int sockfd, char* buf)
+int logon(int sockfd, userData* MyData)
 {
     int ret = 0;
     int true = 0;
@@ -513,12 +513,32 @@ int logon(int sockfd, char* buf)
 
     }
     
-    /* 将客户端字符串复制给传进的字符串数组 */
-    strncpy(buf, recvBuf, (sizeof(char) * COMMUNICATION_SIZE) - 1);
+    struct json_object* userDataObj = json_tokener_parse(recvBuf);
+    memset(MyData, 0, sizeof(userData));
+    /* 解析 */
+    struct json_object * ID_Obj = json_object_object_get(userDataObj, "ID");
+    struct json_object * Name_Obj = json_object_object_get(userDataObj, "NAME");
+    struct json_object * AGE_Obj = json_object_object_get(userDataObj, "AGE");
+    struct json_object * SEX_Obj = json_object_object_get(userDataObj, "SEX");
+    struct json_object * PASSWORD_Obj = json_object_object_get(userDataObj, "PASSWORD");
+    /* 转换成C格式 */
+    const char* ID = json_object_get_string(ID_Obj);
+    const char* NAME = json_object_get_string(Name_Obj);
+    int AGE = json_object_get_int(AGE_Obj);
+    const char* SEX = json_object_get_string(SEX_Obj);
+    const char* PASSWORD = json_object_get_string(PASSWORD_Obj);
+    /* 赋给MyData */
+    strncpy(MyData->ID, ID, (sizeof(char) * 15) - 1);
+    strncpy(MyData->NAME, NAME, (sizeof(char) * 20) - 1);
+    MyData->AGE = AGE;
+    strncpy(MyData->SEX, SEX, (sizeof(char) * 5) - 1);
+    strncpy(MyData->PASSWORD, PASSWORD, (sizeof(char) * 20) - 1);
 
+    json_object_put(userDataObj);
     json_object_put(logOnObj);
     return ret;
 }
+
 
 /* 退出登录 */
 int logOut(int sockfd)
@@ -631,11 +651,13 @@ int AddFriend(int sockfd, char* MyAccount)
         {
             /* 账号不存在 */
             printf("该账号不存在\n");
+            sleep(1);
         }
         else if(strncmp(recvBuf, "IsFriend", strlen("IsFriend")) == 0)
         {
             printf("您和对方已经是好友了\n");
-        }
+            sleep(1);
+        }   
         else
         {
             /* 发送邀请成功 */
@@ -817,3 +839,11 @@ int viewOtherInvite(int sockfd)
     return 0;   
 }
 
+/* 私聊和好友列表 */
+/* 私聊和好友列表结合在一个模块 */
+int privateChat()
+{
+
+
+    return 0;
+}

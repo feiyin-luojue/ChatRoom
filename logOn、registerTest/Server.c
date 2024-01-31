@@ -64,7 +64,7 @@ void* threadHandle(void* arg)
         memset(recvBuf, 0, sizeof(recvBuf));
         memset(sendBuf, 0, sizeof(sendBuf));
         memset(sqlBuf, 0, sizeof(sqlBuf));
-
+        printf("ok11111\n");
         int readBytes = read(acceptfd, recvBuf, sizeof(recvBuf));
         if(readBytes == 0)//对于while中重复等待的read，这一步是不可少的，否则，将会继续往下执行，然后程序很明显就会报错了
         {
@@ -72,7 +72,7 @@ void* threadHandle(void* arg)
             close(acceptfd);
             break;
         }
-
+        
         /* 暂用于测试 */
         printf("%s\n", recvBuf);
 
@@ -178,7 +178,7 @@ void* threadHandle(void* arg)
 
                         /* 上锁 */
                         pthread_mutex_lock(&Db_Mutx);
-                        /* rows和errmsg的内存结尾记得释放 */
+                        /* rows的内存结尾记得释放 */
                         sqlite3_get_table(Data_db, sqlBuf, &result, &rows, &columns, &errmsg);
                         pthread_mutex_unlock(&Db_Mutx);
                         if(rows > 0)//说明有查询结果，该账号存在
@@ -206,10 +206,29 @@ void* threadHandle(void* arg)
                                     pthread_mutex_lock(&stateMutx);
                                     stateListInsert(List, userAccount, acceptfd);
                                     pthread_mutex_unlock(&stateMutx);
+                                    /* 查询用户信息并传给客户端，考虑用json */
+                                    sprintf(sqlBuf,"SELECT * FROM USER_DATA WHERE ID = '%s'", userAccount);
+                                    char **tmpResult = NULL;
 
-                                    
-                                    strncpy(sendBuf, "用户信息", sizeof(sendBuf) - 1);
+                                    /* 上锁 */
+                                    pthread_mutex_lock(&Db_Mutx);
+                                    /* rows的内存结尾记得释放 */
+                                    sqlite3_get_table(Data_db, sqlBuf, &tmpResult, &rows, &columns, &errmsg);           
+                                    pthread_mutex_unlock(&Db_Mutx);
+
+                                    struct json_object * userDataBack = json_object_new_object();
+                                    json_object_object_add(userDataBack, "ID", json_object_new_string(tmpResult[5]));
+                                    json_object_object_add(userDataBack, "NAME", json_object_new_string(tmpResult[6]));
+                                    json_object_object_add(userDataBack, "AGE", json_object_new_int(strtol(tmpResult[7], NULL, 10)));//字符串转整形
+                                    json_object_object_add(userDataBack, "SEX", json_object_new_string(tmpResult[8]));
+                                    json_object_object_add(userDataBack, "PASSWORD", json_object_new_string(tmpResult[9]));
+                                    const char * backStr = json_object_to_json_string(userDataBack);
+
+                                    strncpy(sendBuf, backStr, sizeof(sendBuf) - 1);
                                     write(acceptfd, sendBuf, sizeof(sendBuf));
+
+                                    sqlite3_free_table(tmpResult);
+                                    json_object_put(userDataBack);
                                 }
                                 
                             }
@@ -280,6 +299,7 @@ void* threadHandle(void* arg)
                             /* 已经是好友 */
                             strncpy(sendBuf, "IsFriend", sizeof(sendBuf) - 1);
                             write(acceptfd, sendBuf, sizeof(sendBuf));
+                            
                         }
 
                         /* 释放 */
@@ -397,7 +417,7 @@ void* threadHandle(void* arg)
                         struct json_object* NumsChoiceObj = json_object_object_get(choicesObj, "NumsChoice");
                         struct json_object* choiceObj = json_object_object_get(choicesObj, "choice"); 
                         
-                        /* 选择编号和选择 */
+                        /* 获取选择编号和选择 */
                         int NumsChoice = json_object_get_int(NumsChoiceObj);
                         int choice = json_object_get_int(choiceObj);
                         
@@ -446,9 +466,6 @@ void* threadHandle(void* arg)
     /* 线程退出 */
     pthread_exit(NULL);
 }
-
-
-
 
 
 int main()
