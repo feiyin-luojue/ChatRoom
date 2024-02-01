@@ -1,6 +1,7 @@
 #ifndef _FUNC_H_
 #define _FUNC_H_
-
+#include "privateMsgHash.h"
+#include <sqlite3.h>
 
 #define MAX_LISTEN  128
 #define COMMUNICATION_SIZE   256
@@ -88,5 +89,8 @@ int viewMyInvite(int sockfd);
 /* 私聊和好友列表结合在一个模块 */
 //SELECT INVITEE FROM FRIEND_DATA WHERE INVITER = '我';
 int privateChat(int sockfd);
+
+/* 服务端私聊处理客户端消息 */
+int dealPrivateChat(int acceptfd, char* user, char* Friend, MsgHash * msgHash, sqlite3* Data_Db, pthread_mutex_t* Hash_Mutx);
 
 #endif  //_FUNC_H_

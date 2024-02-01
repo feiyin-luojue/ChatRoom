@@ -1,10 +1,17 @@
 #ifndef _PRIVATE_MSG_HASH_H_
 #define _PRIVATE_MSG_HASH_H_
 
+#include <sqlite3.h>
+#include "common.h"
+
+
+#define HASH_KEY_SIZE   64
 #define MESSAGE_SIZE    256
 #define ACCOUNT_SIZE    15
 #define ACCOUNT_LEN     10
 #define TIME_SIZE       20
+
+
 
 /* 消息结点 */
 typedef struct MsgNode
@@ -36,5 +43,14 @@ typedef struct MsgHash
     MsgList* rcvKeyId;
 }MsgHash;
 
+
+/* 初始化 *//* 参数2为要定义的槽位数 */
+int HashInit(MsgHash ** msgHash, int slotNum);
+
+/* 插消息，Message为要插入的消息，获取插入时的时间并插入 *//* 插这里的发送者是我，接收者是好友 */
+int hashMsgInsert(MsgHash * msgHash, char* Sender, char* Receiver, char* Message);
+
+/* 取消息，取完一个保存到数据库并释放，定义为已读 *//* 取这里发送者是好友，接收者是我 */
+int hashMsgGet(MsgHash * msgHash, sqlite3* Data_Db, char* Sender, char* Receiver, char* Message);
 
 #endif //_PRIVATE_MSG_HASH_H_

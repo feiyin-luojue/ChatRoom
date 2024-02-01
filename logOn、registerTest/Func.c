@@ -15,6 +15,7 @@
 #include "stateList.h"
 #include <sqlite3.h>
 #include "Sqlite3Db.h"
+#include "privateMsgHash.h"
 
 #define CONTINUE    0
 #define STOP        1
@@ -24,6 +25,11 @@
 #define SERVER_PORT 8080
 #define SERVER_IP "127.0.0.1"
 #define BUFFER_SIZE 256
+
+/* 静态 */
+/* 发送和接收消息，读写分离 */
+static int privateMsgChat(int sockfd);
+
 
 /* 服务端套接字创建函数，传出参数获取套接字描述符，第二个参数为端口号 */
 int SrSocket(int * sockfdGet, int serverPort)
@@ -931,8 +937,7 @@ int privateChat(int sockfd)
             /* 发送行动给服务端 */
             write(sockfd, sendBuf, sizeof(sendBuf));
             /* 读写分离发送消息和接收消息 */
-
-
+            privateMsgChat(sockfd);
         }
         else
         {   /* choice = 0 */
@@ -968,15 +973,21 @@ void* readThread(void * arg)
 
     while(1)
     {
+        sleep(1);
         if(((PTH_CONNECT *)arg)->stop != STOP)
         {
             /* ((PTH_CONNECT *)arg)->stop != STOP即传入线程函数的地址的值没有改变 */
-            /* 通知服务端取消息 */
+            /* 不断通知服务端取消息 */
             write(sockfd, sendBuf, sizeof(sendBuf));
             memset(recvBuf, 0, sizeof(recvBuf));
             /* 读服务器传回的消息 */
             read(sockfd, recvBuf, sizeof(recvBuf));
-            printf("%s", recvBuf);
+            //printf("读线程：%s\n", recvBuf);
+            if(strncmp(recvBuf, "!@#$%^*&^%$#@!_^@%#$#!", strlen("!@#$%^*&^%$#@!_^@%#$#!")) != 0)
+            {
+                
+                printf("%s\n", recvBuf);
+            }
         }
         else
         {
@@ -1027,26 +1038,39 @@ static int privateMsgChat(int sockfd)
 }
 
 /* 服务端私聊处理客户端消息 */
-int dealPrivateChat(int acceptfd, char* sender, char* receiver, 哈希消息队列)
+int dealPrivateChat(int acceptfd, char* user, char* Friend, MsgHash * msgHash, sqlite3* Data_Db, pthread_mutex_t* Hash_Mutx)
 {
-    //"!@#$%^*&^%$#@!_^@%#$#!"  取消息
+    //"!@#$%^*&^%$#@!_^@%#$#!"  取消息交流
     //"!@%^&$@(#^)!@*+@$#$@"  停止读
     char sendBuf[COMMUNICATION_SIZE];
     char recvBuf[COMMUNICATION_SIZE];
 
     while(1)
     {   
+        sleep(1);
+        memset(sendBuf, 0, sizeof(sendBuf));
         memset(recvBuf, 0, sizeof(recvBuf));
         read(acceptfd, recvBuf, sizeof(recvBuf));
         if(strncmp(recvBuf, "!@#$%^*&^%$#@!_^@%#$#!", strlen("!@#$%^*&^%$#@!_^@%#$#!")) == 0)
         {
+            printf("我去取消息\n");
             /* 去消息队列中取接收者是客户端和发送者是指定好友的消息，发回给客户端 */
-            char MsgGet[COMMUNICATION_SIZE] = {0};
-            //
-            if(有消息)
+            /* 上锁 */
+            pthread_mutex_lock(Hash_Mutx);
+            int ret = hashMsgGet(msgHash, Data_Db, Friend, user, sendBuf);
+            pthread_mutex_unlock(Hash_Mutx);
+            if(ret == ON_SUCCESS)
             {
-                //发给客户端
-                write(acceptfd);
+                printf("%s有待读消息:%s\n", user, sendBuf);
+                //将取出的消息给客户端
+                write(acceptfd, sendBuf, sizeof(sendBuf));
+            }
+            else
+            {
+                printf("无消息\n");
+                /* 告诉客户端无消息 */
+                strncpy(sendBuf, "!@#$%^*&^%$#@!_^@%#$#!", strlen("!@#$%^*&^%$#@!_^@%#$#!"));
+                write(acceptfd, sendBuf, sizeof(sendBuf));
             }
         }
         else if(strncmp(recvBuf, "!@%^&$@(#^)!@*+@$#$@", strlen("!@%^&$@(#^)!@*+@$#$@")) == 0)
@@ -1056,9 +1080,13 @@ int dealPrivateChat(int acceptfd, char* sender, char* receiver, 哈希消息队�
         }
         else
         {
+            printf("插入消息：%s\n", recvBuf);
             /* 聊天消息 */
-            /* 往消息队列中存放消息，接收者为聊天对象， */
-            
+            /* 往消息队列中存放消息，接收者为聊天对象 */
+            /* 上锁 */
+            pthread_mutex_lock(Hash_Mutx);
+            hashMsgInsert(msgHash, user, Friend, recvBuf);
+            pthread_mutex_unlock(Hash_Mutx);
         }
     }
     

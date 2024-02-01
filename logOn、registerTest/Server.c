@@ -15,7 +15,7 @@
 #include "stateList.h"
 #include <sqlite3.h>
 #include "Sqlite3Db.h"
-
+#include "privateMsgHash.h"
 
 
 
@@ -29,8 +29,10 @@
 /*************************/
 pthread_mutex_t stateMutx;
 pthread_mutex_t Db_Mutx;
+pthread_mutex_t Hash_Mutx;
 stateList* List = NULL;    
 sqlite3 * Data_db;
+MsgHash* Hash = NULL;
 /*************************/
 
 void* threadHandle(void* arg)
@@ -521,7 +523,7 @@ void* threadHandle(void* arg)
                             int FR_Choice = json_object_get_int(NumsObj);
                             //result[FR_Choice]客户想要发消息的好友的账号
                             /* 开始接收客户端发给好友的消息和搜寻消息队列的消息 */
-                            dealPrivateChat(acceptfd, user_Account, result[FR_Choice], 哈希表消息队列);
+                            dealPrivateChat(acceptfd, user_Account, result[FR_Choice], Hash, Data_db, &Hash_Mutx);
                             json_object_put(chat_choiceObj);
                         }
                     }
@@ -561,8 +563,10 @@ int main()
 
     /* 初始化在线用户列表 */
     stateListInit(&List);
+    HashInit(&Hash, HASH_KEY_SIZE);
     pthread_mutex_init(&stateMutx, NULL);
     pthread_mutex_init(&Db_Mutx, NULL);
+    pthread_mutex_init(&Hash_Mutx, NULL);
 
     ret = sqlite3_open("Data.db", &Data_db);
     
@@ -605,6 +609,6 @@ int main()
 
     pthread_mutex_destroy(&stateMutx);
     pthread_mutex_destroy(&Db_Mutx);
-
+    pthread_mutex_destroy(&Hash_Mutx);
     return 0;
 }
