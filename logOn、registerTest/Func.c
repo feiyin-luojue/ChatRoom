@@ -982,11 +982,11 @@ void* readThread(void * arg)
             memset(recvBuf, 0, sizeof(recvBuf));
             /* 读服务器传回的消息 */
             read(sockfd, recvBuf, sizeof(recvBuf));
-            //printf("读线程：%s\n", recvBuf);
+            
             if(strncmp(recvBuf, "!@#$%^*&^%$#@!_^@%#$#!", strlen("!@#$%^*&^%$#@!_^@%#$#!")) != 0)
             {
                 
-                printf("%s\n", recvBuf);
+                printf("\033[1;34;47m%s\033[0;0;0m\n", recvBuf);
             }
         }
         else
@@ -1011,11 +1011,11 @@ static int privateMsgChat(int sockfd)
     pth_Conect.sockfd = sockfd;
     pth_Conect.stop = CONTINUE;
     pthread_create(&tid, NULL, readThread, (void*)&pth_Conect);
-
+    system("clear");
     while(1)
     {
         memset(sendBuf, 0, sizeof(sendBuf));
-        printf("输入(ESC退出):");
+        //printf("输入(ESC退出):");
         scanf("%s", sendBuf);
         if(strlen(sendBuf) == 1 && sendBuf[0] == 27)
         {
@@ -1053,7 +1053,6 @@ int dealPrivateChat(int acceptfd, char* user, char* Friend, MsgHash * msgHash, s
         read(acceptfd, recvBuf, sizeof(recvBuf));
         if(strncmp(recvBuf, "!@#$%^*&^%$#@!_^@%#$#!", strlen("!@#$%^*&^%$#@!_^@%#$#!")) == 0)
         {
-            printf("我去取消息\n");
             /* 去消息队列中取接收者是客户端和发送者是指定好友的消息，发回给客户端 */
             /* 上锁 */
             pthread_mutex_lock(Hash_Mutx);
@@ -1061,13 +1060,11 @@ int dealPrivateChat(int acceptfd, char* user, char* Friend, MsgHash * msgHash, s
             pthread_mutex_unlock(Hash_Mutx);
             if(ret == ON_SUCCESS)
             {
-                printf("%s有待读消息:%s\n", user, sendBuf);
                 //将取出的消息给客户端
                 write(acceptfd, sendBuf, sizeof(sendBuf));
             }
             else
             {
-                printf("无消息\n");
                 /* 告诉客户端无消息 */
                 strncpy(sendBuf, "!@#$%^*&^%$#@!_^@%#$#!", strlen("!@#$%^*&^%$#@!_^@%#$#!"));
                 write(acceptfd, sendBuf, sizeof(sendBuf));
@@ -1080,7 +1077,7 @@ int dealPrivateChat(int acceptfd, char* user, char* Friend, MsgHash * msgHash, s
         }
         else
         {
-            printf("插入消息：%s\n", recvBuf);
+            printf("%s：%s\n", user, recvBuf);
             /* 聊天消息 */
             /* 往消息队列中存放消息，接收者为聊天对象 */
             /* 上锁 */

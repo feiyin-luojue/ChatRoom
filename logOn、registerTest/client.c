@@ -38,12 +38,12 @@ int main()
 
     // printf("%s\n", buf);
     //AddFriend(sockfd, MyData.ID);
-    // viewOtherInvite(sockfd);
-    // viewMyInvite(sockfd);
+    //viewOtherInvite(sockfd);
+    viewMyInvite(sockfd);
     // sleep(30);
-    privateChat(sockfd);
+    //privateChat(sockfd);
 
-    sleep(20);
+    sleep(10);
     logOut(sockfd);
 
     close(sockfd);

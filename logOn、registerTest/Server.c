@@ -601,7 +601,6 @@ int main()
             perror("accpet error");
             exit(-1);
         }
-
         pthread_create(&tid, NULL, threadHandle, (void*)&acceptfd);
     }
     
