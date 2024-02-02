@@ -170,7 +170,7 @@ static int GpMsgListGet(GpMsgList* List, sqlite3* Data_Db, char* Group, char* se
             
             if(travelNode != NULL)
             {
-                //free(travelNode);
+                free(travelNode);
                 printf("%s取到并释放了\n", receiver);
                 travelNode = NULL;
                 List->size--;
