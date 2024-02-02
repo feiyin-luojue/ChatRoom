@@ -30,8 +30,7 @@ int sqlite3GroupTableCreate(sqlite3 * Data_db)
     char *sql = NULL;
     sql = "CREATE TABLE IF NOT EXISTS GROUP_DATA("  \
           "GROUP_NAME       CHAR(20), "\
-          "MEMBER           CHAR(15), "\
-          "CREATER          CHAR(15));";
+          "MEMBER           CHAR(15));";
 
   
     int ret = sqlite3_exec(Data_db, sql, NULL, NULL, NULL);

@@ -1,6 +1,12 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
+#define HASH_KEY_SIZE   64
+#define MESSAGE_SIZE    256
+#define ACCOUNT_SIZE    15
+#define ACCOUNT_LEN     10
+#define TIME_SIZE       20
+
 /* 状态码 */
 enum STATUS_CODE
 {

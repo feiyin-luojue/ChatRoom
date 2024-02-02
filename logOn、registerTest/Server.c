@@ -30,6 +30,7 @@
 pthread_mutex_t stateMutx;
 pthread_mutex_t Db_Mutx;
 pthread_mutex_t Hash_Mutx;
+pthread_mutex_t GRP_Mutx;
 stateList* List = NULL;    
 sqlite3 * Data_db;
 MsgHash* Hash = NULL;
@@ -85,7 +86,7 @@ void* threadHandle(void* arg)
         struct json_object* actionObj = json_object_object_get(readObj, "action");
         
         int action = json_object_get_int(actionObj);
-        
+
         switch (action)
         {
             case DUPLICATE_CHECK://注册账号查重
@@ -475,7 +476,6 @@ void* threadHandle(void* arg)
                         int tmpColumns = 0;
                         char* tmpErrmsg = NULL;
                         char tmpSql[BUFFER_SIZE] = {0};
-                        printf("HERE\n");
                         printf("rows:%d\n", rows);
                         int idx = 0;
                         for(idx = 1; idx <= rows; idx++)
@@ -530,6 +530,145 @@ void* threadHandle(void* arg)
 
                     break;
                 }
+            case CREATE_GROUP ://创建建群
+                {
+                    struct json_object* GroupName = json_object_object_get(readObj, "GroupName");
+                    const char* G_Name = json_object_get_string(GroupName);
+                    /* 先查询是否已经存在该群名 */
+                    sprintf(sqlBuf, "SELECT * FROM GROUP_DATA WHERE GROUP_NAME = '%s'", G_Name);
+                    /* 执行sqlite3查询语句 */
+                    pthread_mutex_lock(&Db_Mutx);
+                    sqlite3_get_table(Data_db, sqlBuf, &result, &rows, &columns, &errmsg);
+                    printf("rows:%d\n", rows);
+                    pthread_mutex_unlock(&Db_Mutx);
+                    if(rows == 0)
+                    {
+                        /* 不存在，插入数据库 */
+                        char tmpSql[BUFFER_SIZE] = {0};
+                        sprintf(tmpSql, "INSERT INTO GROUP_DATA (GROUP_NAME,MEMBER) VALUES ('%s','%s')", G_Name, user_Account);
+                        /* 执行插入语句 */
+                        pthread_mutex_lock(&Db_Mutx);
+                        sqlite3_exec(Data_db, tmpSql, NULL, NULL, NULL);
+                        pthread_mutex_unlock(&Db_Mutx);
+                        /* 告诉客户端成功 */
+                        strncpy(sendBuf, "SUCCESS", sizeof(sendBuf) - 1);
+                        write(acceptfd, sendBuf, sizeof(sendBuf));
+                    }
+                    else
+                    {
+                        /* 存在，告知客户端重新取名 */
+                        strncpy(sendBuf, "FAIL", sizeof(sendBuf) - 1);
+                        write(acceptfd, sendBuf, sizeof(sendBuf));
+                    }
+                    break;
+                }
+            case ADD_GROUP : //添加群聊
+                {
+                    struct json_object* GroupName = json_object_object_get(readObj, "GroupName");
+                    const char* GRP_Name = json_object_get_string(GroupName);
+                    /* 先查询是否已经存在该群名 */
+                    sprintf(sqlBuf, "SELECT * FROM GROUP_DATA WHERE GROUP_NAME = '%s'", GRP_Name);
+                    /* 执行sqlite3查询语句 */
+                    pthread_mutex_lock(&Db_Mutx);
+                    sqlite3_get_table(Data_db, sqlBuf, &result, &rows, &columns, &errmsg);
+                    pthread_mutex_unlock(&Db_Mutx);
+                    printf("Test:rows:%d\n", rows);
+                    if(rows == 0)
+                    {
+                        /* 该群不存在 */
+                        strncpy(sendBuf, "GROUP_NOT_EXISTS", sizeof(sendBuf));
+                        write(acceptfd, sendBuf, sizeof(sendBuf));
+                    }
+                    else
+                    {
+                        /* 群存在，判断是否已经是该群成员 */
+                        char** tmpResult = NULL;
+                        int tmpRows = 0;
+                        int tmpColumns = 0;
+                        char* tmpErrmsg = NULL;
+                        char tmpSql[BUFFER_SIZE] = {0};
+
+                        sprintf(tmpSql, "SELECT * FROM GROUP_DATA WHERE GROUP_NAME = '%s' AND MEMBER = '%s'", GRP_Name, user_Account);
+                        /* 执行sqlite3查询语句 */
+                        pthread_mutex_lock(&Db_Mutx);
+                        sqlite3_get_table(Data_db, tmpSql, &tmpResult, &tmpRows, &tmpColumns, &tmpErrmsg);
+                        pthread_mutex_unlock(&Db_Mutx);
+                        printf("Test:tmpRows:%d\n", tmpRows);
+                        if(tmpRows == 0)
+                        {
+                            /* 不是群成员，加入 */
+                            sprintf(tmpSql, "INSERT INTO GROUP_DATA (GROUP_NAME,MEMBER) VALUES ('%s','%s')", GRP_Name, user_Account);
+                            /* 执行插入语句 */
+                            pthread_mutex_lock(&Db_Mutx);
+                            sqlite3_exec(Data_db, tmpSql, NULL, NULL, NULL);
+                            pthread_mutex_unlock(&Db_Mutx);
+                            /* 告诉客户端成功 */
+                            memset(sendBuf, 0, sizeof(sendBuf));
+                            strncpy(sendBuf, "ADDSUCCESS", sizeof(sendBuf));
+                            write(acceptfd, sendBuf, sizeof(sendBuf));
+                        }
+                        else
+                        {  
+                            /* 已经是群成员 */
+                            memset(sendBuf, 0, sizeof(sendBuf));
+                            strncpy(sendBuf, "ISMEMBER", sizeof(sendBuf));
+                            write(acceptfd, sendBuf, sizeof(sendBuf));
+                        }
+
+                        sqlite3_free_table(tmpResult);
+                    }
+                    break;
+                }
+            case GROUP_CHAT ://群聊
+                {
+                    /* 查询用户所在的群名 */
+                    sprintf(sqlBuf, "SELECT GROUP_NAME FROM GROUP_DATA WHERE MEMBER = '%s'", user_Account);
+                    /* 执行sqlite3查询语句 */
+                    pthread_mutex_lock(&Db_Mutx);
+                    sqlite3_get_table(Data_db, sqlBuf, &result, &rows, &columns, &errmsg);
+                    pthread_mutex_unlock(&Db_Mutx);
+
+                    if(rows == 0)
+                    {
+                        strncpy(sendBuf, "NotGroup", sizeof(sendBuf) - 1);
+                        write(acceptfd, sendBuf, sizeof(sendBuf));
+                    }
+                    else
+                    {
+                        int idx = 0;
+                        for(idx = 1; idx <= rows; idx++)
+                        {
+                            sprintf(sendBuf, "%d.[%s]", idx, result[idx]);
+                            write(acceptfd, sendBuf, sizeof(sendBuf));
+                        }
+
+                        /* 告诉客户端停止读 */
+                        memset(sendBuf, 0, sizeof(sendBuf));
+                        strncpy(sendBuf, "FINISH!@#$%^&*", sizeof(sendBuf) - 1);
+                        write(acceptfd, sendBuf, sizeof(sendBuf));
+
+                        /* 等待客户端回应聊天或者不选择聊天 */
+                        memset(recvBuf, 0, sizeof(recvBuf));
+                        read(acceptfd, recvBuf, sizeof(recvBuf));
+
+                        if(strncmp(recvBuf, "NO_CHAT", strlen("NO_CHAT")) != 0)
+                        {
+                            /* 客户发来的不是NO_CHAT,聊天 */
+                            /* 说明弱智客户端发来的不是NO_CHAT,弱智客户想聊天，发来的内容为choice好友编号 */
+                            struct json_object* GRP_choiceObj = json_tokener_parse(recvBuf);
+                            struct json_object* GRP_NumsObj = json_object_object_get(GRP_choiceObj, "GroupChoice");
+                            /* 获取选择result编号 */
+                            int GRP_Choice = json_object_get_int(GRP_NumsObj);
+                            //result[FR_Choice]客户想要发消息的群聊
+                            /* 开始接收客户端发给好友的消息和搜寻消息队列的消息 */
+                            // dealPrivateChat(acceptfd, user_Account, result[FR_Choice], Hash, Data_db, &Hash_Mutx);
+                            /* 服务端:处理客户端群聊 */
+                            dealGrpChat(acceptfd, user_Account, result[GRP_Choice], );
+                            json_object_put(GRP_choiceObj);
+                        }
+
+                    }
+                }
             case LOG_OUT ://退出登录
                 {
                     /* 将该账号从在线用户列表中删除 */
@@ -567,6 +706,7 @@ int main()
     pthread_mutex_init(&stateMutx, NULL);
     pthread_mutex_init(&Db_Mutx, NULL);
     pthread_mutex_init(&Hash_Mutx, NULL);
+    pthread_mutex_init(&GRP_Mutx, NULL);
 
     ret = sqlite3_open("Data.db", &Data_db);
     
@@ -610,4 +750,5 @@ int main()
     pthread_mutex_destroy(&Db_Mutx);
     pthread_mutex_destroy(&Hash_Mutx);
     return 0;
+    
 }

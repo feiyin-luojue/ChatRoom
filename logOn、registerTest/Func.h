@@ -3,9 +3,12 @@
 #include "privateMsgHash.h"
 #include <sqlite3.h>
 
+#define CONTINUE    0
+#define STOP        1
+
 #define MAX_LISTEN  128
 #define COMMUNICATION_SIZE   256
-#define SERVER_PORT 8080
+#define SERVER_PORT 8081
 #define SERVER_IP "127.0.0.1"
 #define BUFFER_SIZE 256
 
@@ -39,24 +42,20 @@ typedef struct PTH_CONNECT
 /* 私聊 */
 #define PRIVATE_CHAT            5
 /* 群聊 */
-#define ON_GROUP_CHAT           6
-/* 查看好友列表 */
-#define VIEW_FRIEND_LIST        7
-/* 查看群聊列表 */                
-#define VIEW_GROUP_LIST         8
+#define GROUP_CHAT              6
+/* 加入群聊 */
+#define ADD_GROUP               7
 /* 添加好友 */
-#define ADD_FRIENDS             9
+#define ADD_FRIENDS             8
 /* 查看我发出的好友邀请结果 */
-#define VIEW_MY_INVITE          10
+#define VIEW_MY_INVITE          9
 /* 查看和处理别人给我发来的的好友邀请 */
-#define VIEW_OTHER_INVITE       11
+#define VIEW_OTHER_INVITE       10
 /* 删除好友 */
-#define DEL_FRIENDS             12
+#define DEL_FRIENDS             11
 /* 创建群聊 */
-#define CRETAE_GROUP            13
-/* 查看我创建的的群聊 */
-#define VIEW_MY_GROUP           14
-/* 删除我创建的群聊 */        
+#define CREATE_GROUP            12
+/* 删除我创建的群聊 */
 
 /***************************************/
 
@@ -92,5 +91,14 @@ int privateChat(int sockfd);
 
 /* 服务端私聊处理客户端消息 */
 int dealPrivateChat(int acceptfd, char* user, char* Friend, MsgHash * msgHash, sqlite3* Data_Db, pthread_mutex_t* Hash_Mutx);
+
+/* 客户端创建群聊申请 */
+int createGroup(int sockfd);
+
+/* 添加群聊 */
+int AddGroup(int sockfd);
+
+/* 客户端:群聊和好友列表 */
+int GroupChat(int sockfd);
 
 #endif  //_FUNC_H_

@@ -8,7 +8,7 @@
 #define ACCOUNT_SIZE    15
 #define NAME_SIZE       20
 #define ON_LINE         1
-#define GROUP_CHAT      2
+#define ON_GROUP_CHAT   2
 
 typedef struct stateNode
 {

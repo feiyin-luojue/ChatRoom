@@ -82,7 +82,7 @@ int stateOnlineModify(stateList * list, const char* Account)
 /* 修改指定账号状态为在群聊中 */
 int stateGroupChatModify(stateList * list, const char* Account)
 {
-    stateListModify(list, Account, GROUP_CHAT);
+    stateListModify(list, Account, ON_GROUP_CHAT);
     return 0;
 }
 

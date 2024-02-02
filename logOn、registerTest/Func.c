@@ -17,14 +17,7 @@
 #include "Sqlite3Db.h"
 #include "privateMsgHash.h"
 
-#define CONTINUE    0
-#define STOP        1
 
-#define MAX_LISTEN  128
-#define COMMUNICATION_SIZE   256
-#define SERVER_PORT 8080
-#define SERVER_IP "127.0.0.1"
-#define BUFFER_SIZE 256
 
 /* 静态 */
 /* 发送和接收消息，读写分离 */
@@ -938,6 +931,9 @@ int privateChat(int sockfd)
             write(sockfd, sendBuf, sizeof(sendBuf));
             /* 读写分离发送消息和接收消息 */
             privateMsgChat(sockfd);
+
+            /* 释放json对象 */
+            json_object_put(choiceSend);
         }
         else
         {   /* choice = 0 */
@@ -1037,7 +1033,7 @@ static int privateMsgChat(int sockfd)
     return 0;
 }
 
-/* 服务端私聊处理客户端消息 */
+/* 服务端处理客户端私聊消息 */
 int dealPrivateChat(int acceptfd, char* user, char* Friend, MsgHash * msgHash, sqlite3* Data_Db, pthread_mutex_t* Hash_Mutx)
 {
     //"!@#$%^*&^%$#@!_^@%#$#!"  取消息交流
@@ -1088,5 +1084,233 @@ int dealPrivateChat(int acceptfd, char* user, char* Friend, MsgHash * msgHash, s
     }
     
 
+    return 0;
+}
+
+
+/* 客户端创建群聊申请 */
+int createGroup(int sockfd)
+{
+    /* 群聊以群聊名作为唯一key */
+    /* 告诉客户端创建群聊，并将要创建的群聊名告知服务端 */
+    /* 服务端将进行查重 */
+    /* 如果该群已存在，告知已存在，重新输入 */
+    /* 不存在创建成功 */
+    char groupName[BUFFER_SIZE];
+    char sendBuf[COMMUNICATION_SIZE];
+    char recvBuf[COMMUNICATION_SIZE];
+    struct json_object * GroupNameCheck = json_object_new_object();
+    
+    while(1)
+    {
+        system("clear");
+        printf("创建群聊名:");
+        memset(groupName, 0, sizeof(groupName));
+        scanf("%s", groupName);
+        /* 打包 */
+        json_object_object_add(GroupNameCheck, "action", json_object_new_int(CREATE_GROUP));
+        json_object_object_add(GroupNameCheck, "GroupName", json_object_new_string(groupName));
+        /* 生成字符串 */
+        const char* sendStr = json_object_to_json_string(GroupNameCheck);
+        memset(sendBuf, 0, sizeof(sendBuf));
+        memset(recvBuf, 0, sizeof(recvBuf));
+        /* 放入发送缓存区 */
+        strncpy(sendBuf, sendStr, sizeof(sendBuf) - 1);
+        /* 发送给服务端 */
+        write(sockfd, sendBuf, sizeof(sendBuf));
+        /* 等待服务端回应 */
+        read(sockfd, recvBuf, sizeof(recvBuf));
+        /* 判断回应 */
+        if(strncmp(recvBuf, "SUCCESS", strlen("SUCCESS")) == 0)
+        {
+            /* 可行，跳出循环，执行下一步操作 */
+            printf("创建成功\n");
+            break;
+        }
+        else
+        {
+            /* 不可行，重新输入 */
+            printf("该群名已存在\n");
+            sleep(1);
+        }
+    }
+
+    /* 释放 */
+    json_object_put(GroupNameCheck);
+    return 0;
+}
+
+/* 添加群聊 */
+int AddGroup(int sockfd)
+{
+    /* 服务端先检查群聊是否存在 */
+    /* 存在，查看是否已经是群成员 */
+
+    char Group[COMMUNICATION_SIZE];
+    char sendBuf[COMMUNICATION_SIZE];
+    char recvBuf[COMMUNICATION_SIZE];
+
+    struct json_object * GroupObj = json_object_new_object();
+
+    while(1)
+    {
+        system("clear");
+        printf("群聊名(ESC退出):");
+        memset(Group, 0, sizeof(Group));
+        scanf("%s", Group);
+        if(strlen(Group) == 1 && Group[0] == 27)
+        {
+            /* 不加了 */
+            break;
+        }
+        
+        /* 打包 */
+        json_object_object_add(GroupObj, "action", json_object_new_int(ADD_GROUP));
+        json_object_object_add(GroupObj, "GroupName", json_object_new_string(Group));
+        /* 生成字符串 */
+        const char* sendStr = json_object_to_json_string(GroupObj);
+        memset(sendBuf, 0, sizeof(sendBuf));
+        memset(recvBuf, 0, sizeof(recvBuf));
+        /* 放入发送缓存区 */
+        strncpy(sendBuf, sendStr, sizeof(sendBuf) - 1);
+        /* 发送给服务端 */
+        write(sockfd, sendBuf, sizeof(sendBuf));
+        /* 等待服务端回应 */
+        read(sockfd, recvBuf, sizeof(recvBuf));
+        /* 判断回应 */
+        if(strncmp(recvBuf, "ADDSUCCESS", strlen("ADDSUCCESS")) == 0)
+        {
+            /* 可行，跳出循环，执行下一步操作 */
+            printf("加入成功\n");
+            break;
+        }
+        else if(strncmp(recvBuf, "GROUP_NOT_EXISTS", strlen("GROUP_NOT_EXISTS")) == 0)
+        {
+            /* 不可行，重新输入 */
+            printf("该群名不存在\n");
+            sleep(1);
+        }
+        else
+        {
+            /* 已经是群成员 */
+            printf("您已是群成员\n");
+            sleep(1);
+        }
+
+    }
+
+    /* 释放 */
+    json_object_put(GroupObj);
+    return 0;
+}
+
+/* 客户端:群聊和好友列表 */
+int GroupChat(int sockfd)
+{
+    char sendBuf[COMMUNICATION_SIZE];
+    char recvBuf[COMMUNICATION_SIZE];
+
+    /* 行动 */
+    struct json_object * GrChatObj = json_object_new_object();
+    json_object_object_add(GrChatObj, "action", json_object_new_int(GROUP_CHAT));
+    const char* str = json_object_to_json_string(GrChatObj);
+
+    memset(sendBuf, 0, sizeof(sendBuf));
+    strncpy(sendBuf, str, sizeof(sendBuf) - 1);
+    write(sockfd, sendBuf, sizeof(sendBuf));
+
+    /* 计数 */
+    int nums = 0;
+    while(1)
+    {
+        /* 等待回应对 */
+        memset(recvBuf, 0, sizeof(recvBuf));
+        read(sockfd, recvBuf, sizeof(recvBuf));
+
+        if(strncmp(recvBuf, "NotGroup", strlen("NotGroup")) == 0)
+        {
+            printf("您暂无群聊\n");
+            break;
+        }
+        else
+        {
+            
+            if(strncmp(recvBuf, "FINISH!@#$%^&*", strlen("FINISH!@#$%^&*")) == 0)
+            {
+                /* 读取完毕，执行下一步 */
+                break;
+            }
+            else
+            {
+                /* 群名 */
+                printf("%s\n", recvBuf);
+                nums++;
+            }
+        }
+    }
+
+    if(nums != 0)
+    {
+
+        int choice = -1;
+        while(1)
+        {
+            printf("选择群聊(0退出):");
+            scanf("%d", &choice);
+            if(choice < 0 || choice > nums)
+            {
+                printf("\n弱智?\n");
+            }
+            else
+            {
+                break;
+            }
+        }
+        
+        if(choice != 0)
+        {   
+            /* 如果choice不为0，说明弱智客户想和好友聊天，然后我又要为弱智客户堆屎山 */
+            /* 先告诉服务端弱智客户想进入哪个群聊 */
+            struct  json_object * choiceSend = json_object_new_object();
+            json_object_object_add(choiceSend, "GroupChoice", json_object_new_int(choice));
+            const char* sendStr = json_object_to_json_string(choiceSend);
+
+            memset(sendBuf, 0, sizeof(sendBuf));
+            strncpy(sendBuf, sendStr, sizeof(sendBuf) - 1);
+            /* 发送行动给服务端 */
+            write(sockfd, sendBuf, sizeof(sendBuf));
+            /* 读写分离发送消息和接收消息 */
+
+
+            /* 释放json对象 */
+            json_object_put(choiceSend);
+        }
+        else
+        {   /* choice = 0 */
+            /* 程序运行到这里说明有好友但是弱智客户不想聊天 */
+            /* 告诉服务端弱智客户不想聊天 */
+            
+            memset(sendBuf, 0, sizeof(sendBuf));    
+            strncpy(sendBuf, "NO_CHAT", sizeof(sendBuf));
+            write(sockfd, sendBuf, sizeof(sendBuf));
+            /* 退出函数 */
+        }
+        
+    }
+
+    return 0;
+}
+
+/* 读写分离 */
+static int GrpMsgChat(int sockfd)
+{
+
+    return 0;
+}
+
+/* 服务端:处理客户端群聊 */
+int dealGrpChat()
+{   
+    
     return 0;
 }

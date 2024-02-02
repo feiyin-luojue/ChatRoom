@@ -39,10 +39,13 @@ int main()
     // printf("%s\n", buf);
     //AddFriend(sockfd, MyData.ID);
     //viewOtherInvite(sockfd);
-    viewMyInvite(sockfd);
+    //viewMyInvite(sockfd);
     // sleep(30);
     //privateChat(sockfd);
+    //createGroup(sockfd);
+    // AddGroup(sockfd);
 
+    GroupChat(sockfd);
     sleep(10);
     logOut(sockfd);
 

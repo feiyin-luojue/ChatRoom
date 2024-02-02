@@ -4,15 +4,6 @@
 #include <sqlite3.h>
 #include "common.h"
 
-
-#define HASH_KEY_SIZE   64
-#define MESSAGE_SIZE    256
-#define ACCOUNT_SIZE    15
-#define ACCOUNT_LEN     10
-#define TIME_SIZE       20
-
-
-
 /* 消息结点 */
 typedef struct MsgNode
 {
