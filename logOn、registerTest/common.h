@@ -6,6 +6,8 @@
 #define ACCOUNT_SIZE    15
 #define ACCOUNT_LEN     10
 #define TIME_SIZE       20
+#define GROUP_SIZE      25
+#define GROUP_LEN       20
 
 /* 状态码 */
 enum STATUS_CODE

@@ -15,6 +15,7 @@
 #include "stateList.h"
 #include <sqlite3.h>
 #include "Sqlite3Db.h"
+#include "GrpMsgHash.h"
 #include "privateMsgHash.h"
 
 
@@ -34,6 +35,7 @@ pthread_mutex_t GRP_Mutx;
 stateList* List = NULL;    
 sqlite3 * Data_db;
 MsgHash* Hash = NULL;
+GpHash* Gp_Hash = NULL;
 /*************************/
 
 void* threadHandle(void* arg)
@@ -593,7 +595,7 @@ void* threadHandle(void* arg)
                         pthread_mutex_lock(&Db_Mutx);
                         sqlite3_get_table(Data_db, tmpSql, &tmpResult, &tmpRows, &tmpColumns, &tmpErrmsg);
                         pthread_mutex_unlock(&Db_Mutx);
-                        printf("Test:tmpRows:%d\n", tmpRows);
+                        
                         if(tmpRows == 0)
                         {
                             /* 不是群成员，加入 */
@@ -659,18 +661,21 @@ void* threadHandle(void* arg)
                             struct json_object* GRP_NumsObj = json_object_object_get(GRP_choiceObj, "GroupChoice");
                             /* 获取选择result编号 */
                             int GRP_Choice = json_object_get_int(GRP_NumsObj);
-                            //result[FR_Choice]客户想要发消息的群聊
+                            //result[GRP_Choice]客户想要发消息的群聊
                             /* 开始接收客户端发给好友的消息和搜寻消息队列的消息 */
                             // dealPrivateChat(acceptfd, user_Account, result[FR_Choice], Hash, Data_db, &Hash_Mutx);
                             /* 服务端:处理客户端群聊 */
-                            dealGrpChat(acceptfd, user_Account, result[GRP_Choice], );
+                            printf("step1\n");
+                            dealGrpChat(acceptfd, user_Account, result[GRP_Choice], Gp_Hash, Data_db, &GRP_Mutx, &Db_Mutx);
                             json_object_put(GRP_choiceObj);
                         }
 
                     }
+                    break;
                 }
             case LOG_OUT ://退出登录
                 {
+                    printf("?????%d\n", action);
                     /* 将该账号从在线用户列表中删除 */
                     pthread_mutex_lock(&stateMutx);
                     stateListAppointValDel(List, user_Account);//登录时的账号存放在userAccount中
@@ -703,6 +708,7 @@ int main()
     /* 初始化在线用户列表 */
     stateListInit(&List);
     HashInit(&Hash, HASH_KEY_SIZE);
+    GpHashInit(&Gp_Hash, HASH_KEY_SIZE);
     pthread_mutex_init(&stateMutx, NULL);
     pthread_mutex_init(&Db_Mutx, NULL);
     pthread_mutex_init(&Hash_Mutx, NULL);

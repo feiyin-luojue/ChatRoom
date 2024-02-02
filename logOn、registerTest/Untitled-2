@@ -1,0 +1,5 @@
+-- database: /home/ChatRoomProject/logOn、registerTest/Data.db
+
+-- 要运行整个文件，请按窗口右上角的▷按钮。
+
+SELECT MEMBER FROM GROUP_DATA WHERE GROUP_NAME = '这个需求做不了' AND MEMBER != '1111111111'

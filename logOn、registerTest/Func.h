@@ -1,6 +1,7 @@
 #ifndef _FUNC_H_
 #define _FUNC_H_
 #include "privateMsgHash.h"
+#include "GrpMsgHash.h"
 #include <sqlite3.h>
 
 #define CONTINUE    0
@@ -100,5 +101,8 @@ int AddGroup(int sockfd);
 
 /* 客户端:群聊和好友列表 */
 int GroupChat(int sockfd);
+
+/* 服务端:处理客户端群聊 */
+int dealGrpChat(int acceptfd, char* user, char* Group, GpHash* Gp_Hash, sqlite3* Data_Db, pthread_mutex_t* Gp_Mutx, pthread_mutex_t* Db_Mutx);
 
 #endif  //_FUNC_H_

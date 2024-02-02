@@ -16,13 +16,15 @@
 #include <sqlite3.h>
 #include "Sqlite3Db.h"
 #include "privateMsgHash.h"
-
+#include "GrpMsgHash.h"
 
 
 /* 静态 */
 /* 发送和接收消息，读写分离 */
 static int privateMsgChat(int sockfd);
 
+/* 群聊读写分离 */
+static int GrpMsgChat(int sockfd);
 
 /* 服务端套接字创建函数，传出参数获取套接字描述符，第二个参数为端口号 */
 int SrSocket(int * sockfdGet, int serverPort)
@@ -1280,7 +1282,7 @@ int GroupChat(int sockfd)
             /* 发送行动给服务端 */
             write(sockfd, sendBuf, sizeof(sendBuf));
             /* 读写分离发送消息和接收消息 */
-
+            GrpMsgChat(sockfd);
 
             /* 释放json对象 */
             json_object_put(choiceSend);
@@ -1301,16 +1303,161 @@ int GroupChat(int sockfd)
     return 0;
 }
 
+/* 读线程函数 */
+void* GrpReadThread(void * arg)
+{
+    /* 线程分离 */
+    pthread_detach(pthread_self());
+
+    char sendBuf[COMMUNICATION_SIZE];
+    char recvBuf[COMMUNICATION_SIZE];
+
+    int sockfd = ((PTH_CONNECT *)arg)->sockfd;
+    memset(sendBuf, 0, sizeof(sendBuf));
+    /* 告诉服务器取消息 */
+    strncpy(sendBuf, "!@#$%^&*(+@!$@%&^)@$%@#}?", sizeof(sendBuf));
+
+    while(1)
+    {
+        sleep(1);
+        if(((PTH_CONNECT *)arg)->stop != STOP)
+        {
+            /* ((PTH_CONNECT *)arg)->stop != STOP即传入线程函数的地址的值没有改变 */
+            /* 不断通知服务端取消息 */
+            write(sockfd, sendBuf, sizeof(sendBuf));
+            memset(recvBuf, 0, sizeof(recvBuf));
+            /* 读服务器传回的消息 */
+            read(sockfd, recvBuf, sizeof(recvBuf));
+            
+            if(strncmp(recvBuf, "!@#$%^&*(+@!$@%&^)@$%@#}?", strlen("!@#$%^&*(+@!$@%&^)@$%@#}?")) != 0)
+            {
+                printf("\033[1;34;47m%s\033[0;0;0m\n", recvBuf);
+            }
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    pthread_exit(NULL);
+}
+
 /* 读写分离 */
 static int GrpMsgChat(int sockfd)
 {
+    /* 需要读写分离 */
+    char sendBuf[COMMUNICATION_SIZE];
+    char recvBuf[COMMUNICATION_SIZE];
 
+    pthread_t tid;
+    PTH_CONNECT pth_Conect;
+
+    pth_Conect.sockfd = sockfd;
+    pth_Conect.stop = CONTINUE;
+    pthread_create(&tid, NULL, GrpReadThread, (void*)&pth_Conect);
+    system("clear");
+    while(1)
+    {
+        memset(sendBuf, 0, sizeof(sendBuf));
+        //printf("输入(ESC退出):");
+        scanf("%s", sendBuf);
+        if(strlen(sendBuf) == 1 && sendBuf[0] == 27)
+        {
+            /* 输入了ESC键 */
+            /* 停止读线程函数的read */
+            pth_Conect.stop = STOP;
+            memset(sendBuf, 0, sizeof(sendBuf));
+            /* 告诉服务端可以停止读了 */
+            strncpy(sendBuf, "^^^^&&&&*%$#!#%_+(){}?>{}", sizeof(sendBuf));
+            write(sockfd, sendBuf, sizeof(sendBuf));
+
+            break;
+        }
+        else
+        {
+            /* 要发的消息,传给服务端 */
+            write(sockfd, sendBuf, sizeof(sendBuf));
+        }
+    }
     return 0;
 }
 
 /* 服务端:处理客户端群聊 */
-int dealGrpChat()
+int dealGrpChat(int acceptfd, char* user, char* Group, GpHash* Gp_Hash, sqlite3* Data_Db, pthread_mutex_t* Gp_Mutx, pthread_mutex_t* Db_Mutx)
 {   
+    /* 发：查询指定群聊中除用户外的其余成员，全部插一遍消息 */
+    /* 取：取指定群聊，接收者是用户的消息，获取发送者的账号，再查询发送者的昵称 */
+    char sendBuf[COMMUNICATION_SIZE];
+    char recvBuf[COMMUNICATION_SIZE];
+    char sender[ACCOUNT_SIZE];
+    char sqlBuf[BUFFER_SIZE];
+    while(1)
+    {   
+        memset(sendBuf, 0, sizeof(sendBuf));
+        memset(recvBuf, 0, sizeof(recvBuf));
+        char**GpResult = NULL;
+        char* Errmsg;
+        int Row = 0;
+        int Columns = 0;
+        read(acceptfd, recvBuf, sizeof(sendBuf));
+        if(strncmp(recvBuf, "!@#$%^&*(+@!$@%&^)@$%@#}?", strlen("!@#$%^&*(+@!$@%&^)@$%@#}?")) == 0)
+        {   
+            memset(sender, 0, sizeof(sender));
+            pthread_mutex_lock(Gp_Mutx);
+            
+            int ret = GpHashGet(Gp_Hash, Data_Db, Group, sender, user, sendBuf);
+            pthread_mutex_unlock(Gp_Mutx);
+            
+            if(ret == ON_SUCCESS)
+            {   
+                printf("%s取到了\n", user);
+                /* 查询发送者名字 */
+                sprintf(sqlBuf, "SELECT NAME FROM USER_DATA WHERE ID = '%s'", sender);
+                pthread_mutex_lock(Db_Mutx);
+                sqlite3_get_table(Data_Db, sqlBuf, &GpResult, &Row, &Columns, &Errmsg);
+                pthread_mutex_unlock(Db_Mutx);
+                /* 将发送者名字和取到的消息拼接起来再发过去 */
+                char Msg[200] = {0};
+                strncpy(Msg, sendBuf, sizeof(Msg) - 1);
+                sprintf(sendBuf, "[%s]:%s", GpResult[1], Msg);
+                write(acceptfd, sendBuf, sizeof(sendBuf));
+            }
+            else
+            {
+                printf("没有取到\n");
+                /* 告诉客户端无消息 */
+                strncpy(sendBuf, "!@#$%^&*(+@!$@%&^)@$%@#}?", sizeof(sendBuf));
+                write(acceptfd, sendBuf, sizeof(sendBuf));
+            }
+        }
+        else if(strncmp(recvBuf, "^^^^&&&&*%$#!#%_+(){}?>{}", strlen("^^^^&&&&*%$#!#%_+(){}?>{}")) == 0)
+        {
+            /* 停止读 */
+            break;
+        }
+        else
+        {
+            /* 聊天消息 */
+            /* 查询指定群聊中除用户外其余的所有用户，全部发一遍 */
+            
+            sprintf(sqlBuf, "SELECT MEMBER FROM GROUP_DATA WHERE GROUP_NAME = '%s' AND MEMBER != '%s'", Group, user);
+            /* 上锁查询 */
+            pthread_mutex_lock(Db_Mutx);
+            sqlite3_get_table(Data_Db, sqlBuf, &GpResult, &Row, &Columns, &Errmsg);
+            pthread_mutex_unlock(Db_Mutx);
+            /* 给群里的其余群员都发一遍 */
+            int idx = 0;
+            pthread_mutex_lock(Db_Mutx);
+            for(idx = 1; idx <= Row; idx++)
+            {
+                GpHashInsert(Gp_Hash, Group, user, GpResult[idx], recvBuf);
+            }
+            pthread_mutex_unlock(Db_Mutx);
+        }
+        
+        //sqlite3_free_table(GpResult);
+    }
     
     return 0;
 }
