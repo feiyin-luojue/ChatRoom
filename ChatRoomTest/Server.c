@@ -690,6 +690,8 @@ void* threadHandle(void* arg)
 void SIG_Handler()
 {
     printf("SEVER_CLOSING.....\n");
+    stateListDestroy(List);
+    printf("STATE_LIST_DESTROYED!\n");
     threadPoolDestroy(&Server_P);
     printf("THREAD_POOL_DESTROYED!\n");
     pthread_mutex_destroy(&stateMutx);
