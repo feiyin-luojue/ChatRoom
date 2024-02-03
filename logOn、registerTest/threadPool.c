@@ -85,7 +85,6 @@ static void * thread_Hander(void *arg)
         /* 销毁线程池 标识位置1. */
         if (pool->shoudown == 1)
         {
-            
             /* 解锁 */
             pool->liveThreadNums--;
             pthread_mutex_unlock(&(pool->mutexPool));
@@ -112,7 +111,7 @@ static void * thread_Hander(void *arg)
         /* 执行处理函数 */
         printf("thread %ld start working...\n", pthread_self());
         task.worker_hander(task.arg);
-        
+        printf("thread %ld end working...\n", pthread_self());
         
         //sleep(10);
         pthread_mutex_lock(&(pool->mutexBusy));
@@ -397,10 +396,7 @@ int threadPoolDestroy(threadPool_t * pool)
 
     if (pool->threadIds)
     {
-        printf("!!!!!!!!\n");
-        printf("threadId:%p\n",pool->threadIds);
         free(pool->threadIds);
-        printf("!!!!!!!!\n");
         pool->threadIds = NULL;
     }
 

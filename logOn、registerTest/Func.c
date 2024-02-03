@@ -19,6 +19,7 @@
 #include "GrpMsgHash.h"
 
 
+
 /* 静态 */
 /* 发送和接收消息，读写分离 */
 static int privateMsgChat(int sockfd);
@@ -1432,7 +1433,8 @@ int dealGrpChat(int acceptfd, char* user, char* Group, GpHash* Gp_Hash, sqlite3*
             }
         }
         else if(strncmp(recvBuf, "^^^^&&&&*%$#!#%_+(){}?>{}", strlen("^^^^&&&&*%$#!#%_+(){}?>{}")) == 0)
-        {
+        {   
+            printf("%s退出群聊\n", user);
             /* 停止读 */
             break;
         }

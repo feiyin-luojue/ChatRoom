@@ -36,14 +36,14 @@ int main()
     logon(sockfd, &MyData);
     //printf("%s, %s, %d, %s, %s\n", MyData.ID, MyData.NAME, MyData.AGE, MyData.SEX, MyData.PASSWORD);
 
-    // printf("%s\n", buf);
+    //printf("%s\n", buf);
     //AddFriend(sockfd, MyData.ID);
     //viewOtherInvite(sockfd);
     //viewMyInvite(sockfd);
-    // sleep(30);
+    //sleep(30);
     //privateChat(sockfd);
     //createGroup(sockfd);
-    // AddGroup(sockfd);
+    //AddGroup(sockfd);
 
     GroupChat(sockfd);
     sleep(10);

@@ -2,17 +2,22 @@
 #define _FUNC_H_
 #include "privateMsgHash.h"
 #include "GrpMsgHash.h"
+#include "stateList.h"
 #include <sqlite3.h>
 
+/* 客户端读写分离终止标志宏 */
 #define CONTINUE    0
 #define STOP        1
 
 #define MAX_LISTEN  128
 #define COMMUNICATION_SIZE   256
-#define SERVER_PORT 8081
+#define SERVER_PORT 8080
 #define SERVER_IP "127.0.0.1"
 #define BUFFER_SIZE 256
-
+#define MIN_THREAD_NUMS 5
+#define MAX_THREAD_NUMS 10
+#define TASK_CAPACITY   20
+/* 客户端保存登录信息结构体 */
 typedef struct userData
 {
     char ID[15];
@@ -22,12 +27,14 @@ typedef struct userData
     char PASSWORD[20];
 }userData;
 
+/* 客户端读写分离传参结构体 */
 typedef struct PTH_CONNECT
 {
+    /* 服务端套接字 */
     int sockfd;
+    /* 终止读标志 */
     int stop;
 }PTH_CONNECT;
-
 
 /***************************************/
 /* 注册账号查重 */
@@ -104,5 +111,10 @@ int GroupChat(int sockfd);
 
 /* 服务端:处理客户端群聊 */
 int dealGrpChat(int acceptfd, char* user, char* Group, GpHash* Gp_Hash, sqlite3* Data_Db, pthread_mutex_t* Gp_Mutx, pthread_mutex_t* Db_Mutx);
+
+/* 服务端线程处理函数 */
+void* threadHandle(void* arg);
+
+
 
 #endif  //_FUNC_H_

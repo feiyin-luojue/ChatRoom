@@ -19,8 +19,9 @@
 #include "privateMsgHash.h"
 #include "threadPool.h"
 
-
-/*************************/
+/***********全局变量**************/
+int sockfd = 0;
+threadPool_t Server_P;
 pthread_mutex_t stateMutx;
 pthread_mutex_t Db_Mutx;
 pthread_mutex_t Hash_Mutx;
@@ -29,14 +30,11 @@ stateList* List = NULL;
 sqlite3 * Data_db;
 MsgHash* Hash = NULL;
 GpHash* Gp_Hash = NULL;
-/*************************/
+/*********************************/
 
 void* threadHandle(void* arg)
 {   
-    /* 设置线程分离 */
-    // pthread_detach(pthread_self());
-
-    /* 要将acceptfd、用户状态列表等放在arg参数中 */
+    /* 获取acceptfd文件描述符 */
     int acceptfd = *(int*)arg;
 
     //接收缓存区
@@ -162,7 +160,6 @@ void* threadHandle(void* arg)
                         3.如果密码正确，查看是否在线，如果在线，回复online。
                         4.如果不在线，回复用户的信息。
                     */
-
                         struct json_object* AccountObj = json_object_object_get(readObj, "账号");
                         struct json_object* PasswordObj = json_object_object_get(readObj, "密码");
 
@@ -686,31 +683,52 @@ void* threadHandle(void* arg)
     }
 
     close(acceptfd);
-    /* 线程退出 */
-    // pthread_exit(NULL);
 }
 
+/***************************************/
+/* 服务端退出信号处理函数Ctrl + C */
+void SIG_Handler()
+{
+    printf("SEVER_CLOSING.....\n");
+    threadPoolDestroy(&Server_P);
+    printf("THREAD_POOL_DESTROYED!\n");
+    pthread_mutex_destroy(&stateMutx);
+    pthread_mutex_destroy(&Db_Mutx);
+    pthread_mutex_destroy(&Hash_Mutx);
+    printf("ALL_MUTEX_DESTROYED!\n");
+    close(sockfd);
+    printf("SOCKFD_CLOSED!\n");
+    exit(0);
+}
+/***************************************/
 
 int main()
 {
-
-    int sockfd = 0;
+    signal(SIGINT, SIG_Handler);
     pthread_t tid;
-    threadPool_t Server_P;
     int ret = 0;
 
+/*********************************************/
     /* 初始化在线用户列表 */
     stateListInit(&List);
+    /* 私聊hash初始化 */
     HashInit(&Hash, HASH_KEY_SIZE);
+    /* 群聊哈希初始化 */
     GpHashInit(&Gp_Hash, HASH_KEY_SIZE);
-    threadPoolInit(&Server_P, 5, 10, 100);
+    /* 线程池初始化 */
+    threadPoolInit(&Server_P,MIN_THREAD_NUMS, MAX_THREAD_NUMS, TASK_CAPACITY);
+    /* 用户在线状态锁初始化 */
     pthread_mutex_init(&stateMutx, NULL);
+    /* 数据库锁初始化 */
     pthread_mutex_init(&Db_Mutx, NULL);
+    /* 私聊哈希锁初始化 */
     pthread_mutex_init(&Hash_Mutx, NULL);
+    /* 群聊哈希锁初始化 */
     pthread_mutex_init(&GRP_Mutx, NULL);
+/*********************************************/
 
+    /* 连接数据库 */
     ret = sqlite3_open("Data.db", &Data_db);
-    
     if(ret != SQLITE_OK)
     {
         printf("sqlite3_open: %s\n", sqlite3_errmsg(Data_db));
@@ -729,7 +747,7 @@ int main()
     /* 创建服务端套接字 */
     SrSocket(&sockfd, SERVER_PORT);
 
-    /* 客户的信息 */
+/********************创建与客户端的通信*********************************************************************************/
     struct sockaddr_in clientAddress;
     memset(&clientAddress, 0, sizeof(struct sockaddr_in));
     while(1)
@@ -743,15 +761,6 @@ int main()
             exit(-1);
         }
         threadPoolAddTask(&Server_P, threadHandle, (void*)&acceptfd);
-        //pthread_create(&tid, NULL, threadHandle, (void*)&acceptfd);
     }
-    
-    close(sockfd);
-
-    threadPoolDestroy(&Server_P);
-    pthread_mutex_destroy(&stateMutx);
-    pthread_mutex_destroy(&Db_Mutx);
-    pthread_mutex_destroy(&Hash_Mutx);
-    return 0;
-    
+/**********************************************************************************************************************/
 }

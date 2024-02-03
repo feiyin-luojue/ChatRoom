@@ -16,30 +16,32 @@ static int GpMsgListInit(GpMsgList* List);
 static int GpMsgListInsert(GpMsgList* list, char* Group, char* sender, char* receiver, char* Message);
 /* 链表取消息 */
 static int GpMsgListGet(GpMsgList* List, sqlite3* Data_Db, char* Group, char* sender, char* receiver, char* Message);
+
+
 /* 求字符串的ASC */
 static int AscGet(char * GROUP)
 {
-    int  ASC_nums = 0;
+    int  ASC_Nums = 0;
     int idx = 0;
     while(GROUP[idx] != '\0')
     {
-        ASC_nums += GROUP[idx];
+        ASC_Nums += GROUP[idx];
         idx++;
     }
     
-    if(ASC_nums < 0)
+    if(ASC_Nums < 0)
     {
-        ASC_nums = ASC_nums * -1;
+        ASC_Nums = ASC_Nums * -1;
     }
 
-    return ASC_nums;
+    return ASC_Nums;
 }
 
 /* 映射函数 */
 static int GpHashKeyId(char * GROUP, int slotNums)
 {
-    int ASC_nums = AscGet(GROUP);
-    int keyId = (ASC_nums % slotNums);
+    int ASC_Nums = AscGet(GROUP);
+    int keyId = (ASC_Nums % slotNums);
     
     return keyId;
 }
