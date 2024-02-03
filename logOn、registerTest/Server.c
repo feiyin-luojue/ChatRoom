@@ -687,11 +687,12 @@ void* threadHandle(void* arg)
             default:
                 break;
         }
-
+            
         sqlite3_free_table(result);
         json_object_put(readObj);
     }
 
+    close(acceptfd);
     /* 线程退出 */
     pthread_exit(NULL);
 }
