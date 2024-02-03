@@ -17,15 +17,8 @@
 #include "Sqlite3Db.h"
 #include "GrpMsgHash.h"
 #include "privateMsgHash.h"
+#include "threadPool.h"
 
-
-
-/****************** 
-
-
-
-
-******************/
 
 /*************************/
 pthread_mutex_t stateMutx;
@@ -41,7 +34,7 @@ GpHash* Gp_Hash = NULL;
 void* threadHandle(void* arg)
 {   
     /* 设置线程分离 */
-    pthread_detach(pthread_self());
+    // pthread_detach(pthread_self());
 
     /* 要将acceptfd、用户状态列表等放在arg参数中 */
     int acceptfd = *(int*)arg;
@@ -687,14 +680,14 @@ void* threadHandle(void* arg)
             default:
                 break;
         }
-            
+
         sqlite3_free_table(result);
         json_object_put(readObj);
     }
 
     close(acceptfd);
     /* 线程退出 */
-    pthread_exit(NULL);
+    // pthread_exit(NULL);
 }
 
 
@@ -703,13 +696,14 @@ int main()
 
     int sockfd = 0;
     pthread_t tid;
-
+    threadPool_t Server_P;
     int ret = 0;
 
     /* 初始化在线用户列表 */
     stateListInit(&List);
     HashInit(&Hash, HASH_KEY_SIZE);
     GpHashInit(&Gp_Hash, HASH_KEY_SIZE);
+    threadPoolInit(&Server_P, 5, 10, 100);
     pthread_mutex_init(&stateMutx, NULL);
     pthread_mutex_init(&Db_Mutx, NULL);
     pthread_mutex_init(&Hash_Mutx, NULL);
@@ -748,11 +742,13 @@ int main()
             perror("accpet error");
             exit(-1);
         }
-        pthread_create(&tid, NULL, threadHandle, (void*)&acceptfd);
+        threadPoolAddTask(&Server_P, threadHandle, (void*)&acceptfd);
+        //pthread_create(&tid, NULL, threadHandle, (void*)&acceptfd);
     }
     
     close(sockfd);
 
+    threadPoolDestroy(&Server_P);
     pthread_mutex_destroy(&stateMutx);
     pthread_mutex_destroy(&Db_Mutx);
     pthread_mutex_destroy(&Hash_Mutx);
