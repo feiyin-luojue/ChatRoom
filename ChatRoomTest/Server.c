@@ -10,6 +10,7 @@
 #include <error.h>
 #include <pthread.h>
 #include <json-c/arraylist.h>
+#include <json-c/json_object.h>
 #include <json-c/json.h>
 #include "Func.h"
 #include "stateList.h"

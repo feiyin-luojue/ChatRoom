@@ -4,6 +4,7 @@
 #include "GrpMsgHash.h"
 #include "stateList.h"
 #include <sqlite3.h>
+#include <pthread.h>
 
 /* 客户端读写分离终止标志宏 */
 #define CONTINUE    0
@@ -115,6 +116,6 @@ int dealGrpChat(int acceptfd, char* user, char* Group, GpHash* Gp_Hash, sqlite3*
 /* 服务端线程处理函数 */
 void* threadHandle(void* arg);
 
-
+int sendFile();      //发送文件
 
 #endif  //_FUNC_H_

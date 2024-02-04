@@ -10,6 +10,7 @@
 #include <error.h>
 #include <json-c/arraylist.h>
 #include <json-c/json.h>
+#include <json-c/json_object.h>
 #include "Func.h"
 
 
@@ -29,9 +30,9 @@ int main()
     char buf[COMMUNICATION_SIZE];
     memset(buf, 0, sizeof(buf));
     /* 注册 */
-    //Register(sockfd, buf);
-    //printf("%s\n", buf);
-    //memset(buf, 0, sizeof(buf));
+    // Register(sockfd, buf);
+    // printf("%s\n", buf);
+    // memset(buf, 0, sizeof(buf));
     /* 登录 */
     logon(sockfd, &MyData);
     //printf("%s, %s, %d, %s, %s\n", MyData.ID, MyData.NAME, MyData.AGE, MyData.SEX, MyData.PASSWORD);
@@ -45,8 +46,12 @@ int main()
     //createGroup(sockfd);
     //AddGroup(sockfd);
 
-    GroupChat(sockfd);
-    sleep(10);
+    //GroupChat(sockfd);
+    //sleep(10);
+
+    sendFile();
+
+
     logOut(sockfd);
 
     close(sockfd);

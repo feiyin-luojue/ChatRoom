@@ -10,6 +10,7 @@
 #include <error.h>
 #include <pthread.h>
 #include <json-c/arraylist.h>
+#include <json-c/json_object.h>
 #include <json-c/json.h>
 #include "Func.h"
 #include "stateList.h"
@@ -17,6 +18,7 @@
 #include "Sqlite3Db.h"
 #include "privateMsgHash.h"
 #include "GrpMsgHash.h"
+#include <sys/fcntl.h>
 
 
 
@@ -1461,5 +1463,44 @@ int dealGrpChat(int acceptfd, char* user, char* Group, GpHash* Gp_Hash, sqlite3*
         //sqlite3_free_table(GpResult);
     }
     
+    return 0;
+}
+
+int sendFile()      //发送文件
+{
+    system("clear");
+    char fileBuffer[BUFFER_SIZE];
+    memset(fileBuffer, 0, sizeof(fileBuffer));
+
+    printf("请输入要传输的文件名：\n");
+    printf("(请输入用于功能测试的文件名：LjjsTXT.txt)\n");
+    scanf("%s", fileBuffer);
+    int fd1 = open(fileBuffer, O_RDONLY);
+    if (fd1 == -1)
+    {
+        perror("该文件不存在");
+        return 0;
+    }
+
+    int fd2 = open("接收到的文件.txt", O_WRONLY | O_CREAT, 0777);
+
+    char buffer[BUFFER_SIZE];
+    bzero(buffer, sizeof(buffer));
+
+    int realyRead = 0;
+    while (1)
+    {
+        realyRead = read(fd1, buffer, sizeof(buffer));
+        if (realyRead == 0)
+        {
+            break;
+        }
+
+        write(fd2, buffer, realyRead);
+        if (realyRead < sizeof(buffer))
+        {
+            break;
+        }
+    }
     return 0;
 }
